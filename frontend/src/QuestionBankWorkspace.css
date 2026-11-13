@@ -1,0 +1,266 @@
+.bank-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.bank-filters label {
+  display: grid;
+  gap: 7px;
+  color: #35566c;
+  font-size: 14px;
+}
+
+.bank-filters input,
+.bank-filters select {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 13px;
+  border: 1px solid #d7e0e7;
+  border-radius: 7px;
+  background: #fff;
+  color: #28465a;
+  font: inherit;
+}
+
+.bank-import-list {
+  display: grid;
+  gap: 9px;
+  max-height: 430px;
+  overflow: auto;
+  margin: 16px 0;
+}
+
+.bank-import-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid #e3e9ed;
+  border-radius: 7px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.bank-import-item input,
+.account-active-toggle input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  accent-color: #24796e;
+}
+
+.bank-import-item span,
+.bank-import-item strong,
+.bank-import-item small {
+  display: block;
+  min-width: 0;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.bank-import-item small {
+  color: #6c8191;
+}
+
+.accounts-row-editor {
+  margin: 22px 0;
+  padding: 20px;
+  border: 1px solid #e3e9ed;
+  border-radius: 8px;
+  background: #f8fafb;
+}
+
+.accounts-row-editor h3 {
+  margin-top: 0;
+}
+
+.account-list {
+  display: grid;
+  margin-top: 20px;
+  border: 1px solid #e3e9ed;
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.account-list-heading,
+.account-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 124px;
+  gap: 18px;
+  align-items: center;
+  padding: 14px 18px;
+}
+
+.account-list-heading {
+  background: #f3f6f7;
+  color: #35566c;
+  font-size: 13px;
+}
+
+.account-row {
+  min-width: 0;
+  border-top: 1px solid #e8edef;
+  background: #fff;
+}
+
+.account-row-confirming {
+  background: #fffaf3;
+}
+
+.account-information {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: #526977;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.account-name {
+  color: #243f53;
+  font-size: 15px;
+}
+
+.account-username {
+  color: #758691;
+}
+
+.account-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+}
+
+.account-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.account-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid #dce5e9;
+  border-radius: 7px;
+  background: #fff;
+  color: #365970;
+  cursor: pointer;
+}
+
+.account-icon-button:hover:not(:disabled) {
+  background: #f0f6f5;
+  border-color: #9fc5bc;
+  color: #175e58;
+}
+
+.account-icon-button:focus-visible {
+  outline: 3px solid #93c9c0;
+  outline-offset: 2px;
+}
+
+.account-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.account-save-button {
+  color: #28775e;
+}
+
+.account-delete-button {
+  color: #a55c2b;
+}
+
+.account-delete-button:hover:not(:disabled) {
+  background: #fff1ee;
+  border-color: #edc7bf;
+  color: #a24336;
+}
+
+.account-delete-confirm {
+  flex-basis: 100%;
+  color: #8a642c;
+  font-size: 11px;
+}
+
+.account-row .account-information label {
+  display: grid;
+  gap: 5px;
+  color: #526977;
+  font-size: 12px;
+}
+
+.account-row .account-information input:not([type=checkbox]) {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid #d7e0e7;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.bank-question-options {
+  display: grid;
+  gap: 7px;
+  margin: 0 0 16px;
+  padding-left: 22px;
+  color: #35566c;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.bank-question-options li span {
+  color: #28775e;
+  font-weight: 600;
+}
+
+.account-active-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 18px;
+  color: #35566c;
+}
+
+.competition-edit-actions {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
+@media(max-width:600px) {
+  .bank-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .account-list-heading,
+  .account-row {
+    grid-template-columns: minmax(0, 1fr) 78px;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .account-actions {
+    justify-content: flex-end;
+    gap: 5px;
+  }
+
+  .account-icon-button {
+    width: 34px;
+    height: 34px;
+  }
+
+  .competition-edit-actions {
+    width: 100%;
+    justify-items: stretch;
+  }
+}

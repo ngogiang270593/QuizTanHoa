@@ -1,0 +1,9 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "Quiz_TanHoa: Backend", "type": "process", "command": "dotnet", "args": ["run", "--project", "backend/Quiz_TanHoa.Api.csproj"], "problemMatcher": "$msCompile" },
+    { "label": "Quiz_TanHoa: Backend minh họa", "type": "process", "command": "dotnet", "args": ["run", "--project", "backend/Quiz_TanHoa.Api.csproj", "--launch-profile", "MinhHoa"], "problemMatcher": "$msCompile" },
+    { "label": "Quiz_TanHoa: Frontend", "type": "process", "command": "node", "args": ["frontend/node_modules/vite/bin/vite.js", "frontend", "--mode", "web"], "problemMatcher": [] },
+    { "label": "Quiz_TanHoa: Minh họa", "type": "process", "command": "node", "args": ["scripts/dev.cjs", "--demo"], "problemMatcher": [] }
+  ]
+}

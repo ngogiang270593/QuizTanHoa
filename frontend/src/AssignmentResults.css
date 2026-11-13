@@ -1,0 +1,30 @@
+.assignment-results-filter{display:grid;gap:8px;max-width:440px;margin:18px 0;font-size:14px;font-weight:600;color:#405f71}
+.assignment-results-filter select{width:100%;padding:11px 13px;border:1px solid #d9e1e7;border-radius:7px;background:#fff;color:#2b495d;font-size:15px}
+.assignment-results-tiebreak{display:flex;align-items:flex-start;gap:9px;max-width:760px;margin:18px 0 8px;font-size:14px;line-height:1.8;color:#405f71}
+.assignment-results-tiebreak input{width:18px;height:18px;margin-top:3px;flex-shrink:0;accent-color:#24796e}
+.assignment-results-wrap{width:100%;overflow:auto;border:1px solid #dfe6eb;border-radius:8px}
+.assignment-results-table{width:100%;min-width:1160px;border-collapse:collapse;font-size:13px;line-height:1.7;color:#405a6b}
+.assignment-results-table th,.assignment-results-table td{padding:12px 13px;border-bottom:1px solid #e8edf0;text-align:left;white-space:nowrap}
+.assignment-results-table th{position:sticky;top:0;background:#f2f6f7;color:#3d5f70;font-weight:650}
+.assignment-results-table tbody tr:last-child td{border-bottom:0}
+.assignment-results-table tbody tr:hover{background:#f8fafb}
+.assignment-result-status{display:inline-block;padding:4px 8px;border-radius:5px;background:#f3f0ed;color:#796958;font-size:12px}
+.assignment-result-status.valid{background:#e8f4ec;color:#286f54}
+@media(max-width:760px){.assignment-results-filter{max-width:none}.assignment-results-table th,.assignment-results-table td{padding:10px}}
+.assignment-award-settings{display:grid;gap:14px;margin:18px 0}
+.assignment-award-category-form{display:grid;grid-template-columns:1.2fr 1.2fr .55fr auto;align-items:end;gap:12px}
+.assignment-award-category-form label,.assignment-award-reason{display:grid;gap:7px;color:#405f71;font-size:14px;font-weight:600}
+.assignment-award-category-form input,.assignment-award-category-form select,.assignment-award-reason textarea,.assignment-results-table select{width:100%;padding:10px 12px;border:1px solid #d9e1e7;border-radius:7px;background:#fff;color:#2b495d;font:inherit}
+.assignment-award-categories{display:grid;gap:8px}
+.assignment-award-categories>div{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid #e1e8ec;border-radius:7px}
+.assignment-award-categories span{color:#607786;font-size:13px}
+.assignment-award-categories button{margin-left:auto}
+.assignment-award-confirm{display:flex;align-items:flex-start;gap:9px;margin:18px 0;color:#405f71;font-size:14px}
+.assignment-award-confirm input,.assignment-award-settings input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:#24796e}
+.assignment-award-warning{display:inline-block;margin:2px 6px 2px 0;padding:3px 7px;border-radius:5px;background:#fff2df;color:#8a5412;font-size:12px}
+.assignment-award-audit{margin-top:20px;color:#405f71}
+.assignment-award-audit ul{padding-left:22px}
+.candidate-awards{display:grid;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid #e1e8ec}
+.candidate-awards h3{margin:0;color:#2b495d;font-size:18px}
+.candidate-awards p{margin:0;color:#526b7a;line-height:1.7}
+@media(max-width:760px){.assignment-award-category-form{grid-template-columns:1fr 1fr}.assignment-award-category-form button{grid-column:1/-1}.assignment-award-categories>div{flex-wrap:wrap}}

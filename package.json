@@ -1,0 +1,42 @@
+{
+  "name": "quiz-tanhoa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hội thi nghiệp vụ cán bộ, công chức xã Tân Hòa",
+  "main": "main.js",
+  "scripts": {
+    "setup": "npm --prefix frontend ci && dotnet restore backend/Quiz_TanHoa.Api.csproj",
+    "dev": "node scripts/dev.cjs",
+    "dev:demo": "node scripts/dev.cjs --demo",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "dotnet run --project backend/Quiz_TanHoa.Api.csproj",
+    "dev:backend:demo": "dotnet run --project backend/Quiz_TanHoa.Api.csproj --launch-profile MinhHoa",
+    "build:web": "npm --prefix frontend run build:web && dotnet publish backend/Quiz_TanHoa.Api.csproj -c Release -o publish/web",
+    "build:desktop": "npm --prefix frontend run build && dotnet publish backend/Quiz_TanHoa.Api.csproj -c Release -r win-x64 --self-contained true -o publish/backend",
+    "electron": "electron .",
+    "build-app": "npm run build:desktop && electron-builder",
+    "test:auth": "node scripts/test-auth.cjs",
+    "test:competitions": "node scripts/test-competitions.cjs",
+    "test:exams": "node scripts/test-exams.cjs",
+    "test:assignments": "node scripts/test-assignments.cjs",
+    "test:results": "node scripts/test-results.cjs",
+    "test:development": "dotnet build backend/Quiz_TanHoa.Api.csproj -c Debug --artifacts-path .artifacts/development && node scripts/test-development.cjs",
+    "test:browser": "node scripts/test-browser.cjs",
+    "test": "dotnet build backend/Quiz_TanHoa.Api.csproj -c Release && npm run test:auth && npm run test:competitions && npm run test:exams && npm run test:assignments && npm run test:results && npm --prefix frontend run build:web && npm run test:development && npm run test:browser"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.quiztanhoa.desktop",
+    "productName": "Quiz_TanHoa",
+    "directories": { "output": "release" },
+    "files": ["main.js", "package.json"],
+    "extraResources": [
+      { "from": "publish/backend", "to": "backend" },
+      { "from": "frontend/dist", "to": "web" }
+    ],
+    "win": { "target": "nsis" }
+  }
+}

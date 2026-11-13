@@ -1,0 +1,58 @@
+@baseUrl = http://127.0.0.1:5030
+@token = replace-with-candidate-token
+@competitionId = 1
+@questionId = 1
+@tabId = replace-with-one-stable-tab-id
+@organizerToken = replace-with-organizer-token
+@userId = 1
+
+### Read attempt status (NotStarted, InProgress, Submitted, or Expired)
+GET {{baseUrl}}/api/candidate/competitions/{{competitionId}}/attempt
+Authorization: Bearer {{token}}
+X-Quiz-Attempt-Tab: {{tabId}}
+
+### Start or reopen the active attempt
+POST {{baseUrl}}/api/candidate/competitions/{{competitionId}}/attempt/start
+Authorization: Bearer {{token}}
+X-Quiz-Attempt-Tab: {{tabId}}
+
+### Save an answer and the review marker
+PUT {{baseUrl}}/api/candidate/competitions/{{competitionId}}/attempt/questions/{{questionId}}
+Authorization: Bearer {{token}}
+X-Quiz-Attempt-Tab: {{tabId}}
+Content-Type: application/json
+
+{
+  "answer": "A",
+  "isMarked": false
+}
+
+### Submit the active attempt
+POST {{baseUrl}}/api/candidate/competitions/{{competitionId}}/attempt/submit
+Authorization: Bearer {{token}}
+X-Quiz-Attempt-Tab: {{tabId}}
+
+### Renew the active tab lease every 10 seconds while the page is open
+POST {{baseUrl}}/api/candidate/competitions/{{competitionId}}/attempt/lease
+Authorization: Bearer {{token}}
+X-Quiz-Attempt-Tab: {{tabId}}
+
+### Transfer the attempt to the candidate's latest active login session (requires identity verification and a reason)
+POST {{baseUrl}}/api/organizer/competitions/{{competitionId}}/assignments/{{userId}}/attempt-session
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "reason": "Đã xác minh danh tính thí sinh trực tiếp",
+  "allowRetake": false
+}
+
+### Authorize a replacement attempt only when competition rules permit retakes
+POST {{baseUrl}}/api/organizer/competitions/{{competitionId}}/assignments/{{userId}}/attempt-session
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "reason": "Thể lệ cho phép thi lại; đã xác minh danh tính",
+  "allowRetake": true
+}

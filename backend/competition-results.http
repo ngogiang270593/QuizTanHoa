@@ -1,0 +1,23 @@
+@baseUrl = http://127.0.0.1:5030
+@competitionId = 1
+@token = replace-with-organizer-token
+
+### Results include correct-answer count and elapsed time; ranking is correct count descending, then duration ascending
+GET {{baseUrl}}/api/organizer/competitions/{{competitionId}}/results
+Authorization: Bearer {{token}}
+
+### Results for one ranking group
+GET {{baseUrl}}/api/organizer/competitions/{{competitionId}}/results?rankingGroupName=Kinh%20t%E1%BA%BF%20v%C3%A0%20h%E1%BA%A1%20t%E1%BA%A7ng
+Authorization: Bearer {{token}}
+
+### Export all ranking groups as .xlsx
+GET {{baseUrl}}/api/organizer/competitions/{{competitionId}}/results/excel
+Authorization: Bearer {{token}}
+
+### Export one ranking group as .xlsx
+GET {{baseUrl}}/api/organizer/competitions/{{competitionId}}/results/excel?rankingGroupName=Kinh%20t%E1%BA%BF%20v%C3%A0%20h%E1%BA%A1%20t%E1%BA%A7ng
+Authorization: Bearer {{token}}
+
+### Invalid ranking group returns 400
+GET {{baseUrl}}/api/organizer/competitions/{{competitionId}}/results?rankingGroupName=not-a-competition-group
+Authorization: Bearer {{token}}

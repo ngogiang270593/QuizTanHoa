@@ -1,0 +1,64 @@
+@baseUrl = http://127.0.0.1:5030
+@competitionId = 1
+@organizerToken = replace-with-organizer-token
+@candidateToken = replace-with-assigned-candidate-token
+
+### Read award configuration, results, and audit history
+GET {{baseUrl}}/api/organizer/competitions/{{competitionId}}/awards
+Authorization: Bearer {{organizerToken}}
+
+### Preview an award list without saving it
+POST {{baseUrl}}/api/organizer/competitions/{{competitionId}}/awards/proposal
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "categories": [
+    { "rankingGroupName": "Nhóm chuyên môn", "awardName": "Giải Nhất", "quantity": 1 },
+    { "rankingGroupName": "Nhóm chuyên môn", "awardName": "Giải Nhì", "quantity": 2 }
+  ]
+}
+
+### Save the draft using the current revision and proposal nominee IDs
+PUT {{baseUrl}}/api/organizer/competitions/{{competitionId}}/awards/draft
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "revision": 0,
+  "individualScoresPublished": false,
+  "tieReviewConfirmed": false,
+  "categories": [
+    { "rankingGroupName": "Nhóm chuyên môn", "awardName": "Giải Nhất", "quantity": 1 }
+  ],
+  "nominees": [
+    { "attemptId": 10, "awardName": "Giải Nhất", "rankingGroupName": "Nhóm chuyên môn" }
+  ],
+  "adjustmentReason": null
+}
+
+### Approve the saved draft after reviewing ties
+POST {{baseUrl}}/api/organizer/competitions/{{competitionId}}/awards/approve
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "revision": 1,
+  "reason": "Đã rà soát danh sách theo thể lệ"
+}
+
+### Publish the approved list
+POST {{baseUrl}}/api/organizer/competitions/{{competitionId}}/awards/publish
+Authorization: Bearer {{organizerToken}}
+
+### Export the immutable published list
+GET {{baseUrl}}/api/organizer/competitions/{{competitionId}}/awards/excel
+Authorization: Bearer {{organizerToken}}
+
+### Candidate reads only their assigned competition's published information
+GET {{baseUrl}}/api/candidate/competitions/{{competitionId}}/awards
+Authorization: Bearer {{candidateToken}}
+
+### End the competition after awards are published and no attempt is active
+POST {{baseUrl}}/api/organizer/competitions/{{competitionId}}/end
+Authorization: Bearer {{organizerToken}}

@@ -1,0 +1,41 @@
+@baseUrl = http://127.0.0.1:5030
+@token = replace-with-organizer-token
+@userId = 1
+
+### List accounts
+GET {{baseUrl}}/api/organizer/users
+Authorization: Bearer {{token}}
+
+### Create a candidate account (temporary password is 123456; first login must change it)
+POST {{baseUrl}}/api/organizer/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "nguyenvana",
+  "fullName": "Nguyễn Văn A",
+  "department": "Phòng Kinh tế"
+}
+
+### Read an account
+GET {{baseUrl}}/api/organizer/users/{{userId}}
+Authorization: Bearer {{token}}
+
+### Update account name, department and active state
+PUT {{baseUrl}}/api/organizer/users/{{userId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "fullName": "Nguyễn Văn A",
+  "department": "Phòng Kinh tế",
+  "isActive": true
+}
+
+### Delete only when the candidate has no assignments or attempts; otherwise returns 409
+DELETE {{baseUrl}}/api/organizer/users/{{userId}}
+Authorization: Bearer {{token}}
+
+### Missing account returns 404
+GET {{baseUrl}}/api/organizer/users/999999
+Authorization: Bearer {{token}}
