@@ -5,6 +5,9 @@ namespace Quiz_TanHoa.Api.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
+    public DbSet<QuestionTopic> QuestionTopics => Set<QuestionTopic>();
+    public DbSet<WorkflowEvent> WorkflowEvents => Set<WorkflowEvent>();
+    public DbSet<AccessProcess> AccessProcesses => Set<AccessProcess>();
     public DbSet<User> Users => Set<User>();
     public DbSet<OrganizationUnit> OrganizationUnits => Set<OrganizationUnit>();
     public DbSet<AuthSession> AuthSessions => Set<AuthSession>();
@@ -62,6 +65,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Exam>().HasOne(exam => exam.Competition).WithMany().HasForeignKey(exam => exam.CompetitionId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Exam>().HasOne(exam => exam.FieldGroup).WithMany().HasForeignKey(exam => exam.FieldGroupId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Exam>().Property(exam => exam.DraftRevision).IsConcurrencyToken();
+        modelBuilder.Entity<Exam>().Property(exam => exam.ReviewStatus).IsConcurrencyToken();
         modelBuilder.Entity<Exam>().HasOne<ApprovedExamVersion>().WithMany().HasForeignKey(exam => exam.CurrentApprovedVersionId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<ExamQuestion>().HasOne(question => question.Exam).WithMany(exam => exam.Questions).HasForeignKey(question => question.ExamId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<ExamQuestion>().HasOne<QuestionBankQuestion>().WithMany()

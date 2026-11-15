@@ -12,6 +12,9 @@ public static class ExamResponse
         fieldGroupName = exam.FieldGroup?.Name,
         exam.DurationMinutes, exam.TargetQuestionCount, exam.CommonQuestionCount, exam.SpecializedQuestionCount,
         exam.DraftRevision, exam.CurrentApprovedVersionId,
+        reviewStatus = approvedVersion?.DraftRevision == exam.DraftRevision ? "Approved" : exam.ReviewStatus == "Returned" ? "Draft" : exam.ReviewStatus,
+        competitionStatus = exam.Competition?.Status,
+        exam.SubmittedRevision, exam.SubmittedByUserId, submittedAtUtc = CompetitionResponse.Utc(exam.SubmittedAtUtc), exam.ReviewNote,
         isApproved = approvedVersion is not null && approvedVersion.DraftRevision == exam.DraftRevision,
         exam.IsDemo, questionCount = exam.Questions.Count,
         createdAtUtc = CompetitionResponse.Utc(exam.CreatedAtUtc), updatedAtUtc = CompetitionResponse.Utc(exam.UpdatedAtUtc)
@@ -19,7 +22,7 @@ public static class ExamResponse
 
     public static object Question(ExamQuestion question) => new
     {
-        question.Id, question.ExamId, question.BankQuestionId, question.Position, question.Type, question.Content,
+        question.Topic, question.Id, question.ExamId, question.BankQuestionId, question.Position, question.Type, question.Content,
         options = QuestionRules.Options(question), question.CorrectAnswer, question.Points, question.IsScenario,
         question.Explanation, question.Source, question.Group, question.RequiresSourceReview, question.SourceReviewed,
         question.ReviewedByUserId, reviewedAtUtc = CompetitionResponse.Utc(question.ReviewedAtUtc)
@@ -27,7 +30,7 @@ public static class ExamResponse
 
     public static object Question(QuestionBankQuestion question) => new
     {
-        question.Id, question.Type, question.Content,
+        question.Id, question.Topic, question.Type, question.Content,
         options = QuestionRules.Options(new ExamQuestion { OptionsJson = question.OptionsJson }),
         question.CorrectAnswer, question.Points, question.IsScenario, question.Explanation, question.Source,
         question.Group, question.RequiresSourceReview, question.SourceReviewed, question.ReviewedByUserId,

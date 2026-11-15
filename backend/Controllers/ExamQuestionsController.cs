@@ -41,8 +41,8 @@ public sealed class ExamQuestionsController(AppDbContext db) : ControllerBase
     {
         var exam = await ScopedExam(competitionId, examId);
         if (exam is null) return NotFound(new { message = "Không tìm thấy đề thi trong cuộc thi." });
-        if (request.QuestionIds is null || request.QuestionIds.Count == 0 || request.QuestionIds.Count > 500)
-            return BadRequest(new { message = "Chọn từ 1 đến 500 câu hỏi trong ngân hàng." });
+        if (request.QuestionIds is null || request.QuestionIds.Count == 0 || request.QuestionIds.Count > 400)
+            return BadRequest(new { message = "Chọn từ 1 đến 400 câu hỏi trong ngân hàng." });
         if (request.QuestionIds.Distinct().Count() != request.QuestionIds.Count)
             return BadRequest(new { message = "Danh sách câu hỏi bị lặp." });
 
@@ -51,7 +51,11 @@ public sealed class ExamQuestionsController(AppDbContext db) : ControllerBase
             .ToListAsync(cancellationToken);
         if (bankQuestions.Count != request.QuestionIds.Count)
             return BadRequest(new { message = "Một hoặc nhiều câu hỏi không còn hoạt động trong ngân hàng." });
-        var existingCount = await db.ExamQuestions.CountAsync(question => question.ExamId == examId, cancellationToken);
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var existing = await db.ExamQuestions.Where(q => q.ExamId == examId).ToListAsync(cancellationToken);
+        bankQuestions = request.QuestionIds.Select(id => bankQuestions.Single(q => q.Id == id)).Where(q => !existing.Any(e => e.BankQuestionId == q.Id)).ToList();
+        if (bankQuestions.Count == 0) return Ok(Array.Empty<object>());
+        var existingCount = existing.Count;
         if (existingCount + bankQuestions.Count > 500)
             return BadRequest(new { message = "Mỗi đề hỗ trợ tối đa 500 câu hỏi." });
 
@@ -64,9 +68,37 @@ public sealed class ExamQuestionsController(AppDbContext db) : ControllerBase
             return question;
         }).ToList();
         db.ExamQuestions.AddRange(added);
+        if (request.SyncCounts) SyncCounts(exam, existing.Concat(added).ToList());
         ExamRules.TouchDraft(exam);
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Ok(added.Select(ExamResponse.Question));
+    }
+
+    [HttpPost("remove-many")]
+    public async Task<IActionResult> RemoveMany(int competitionId, int examId, QuestionBankImportRequest request, CancellationToken cancellationToken)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var exam = await ScopedExam(competitionId, examId);
+        if (exam is null) return NotFound(new { message = "Không tìm thấy đề thi trong cuộc thi." });
+        if (request.QuestionIds is null || request.QuestionIds.Count is < 1 or > 400 || request.QuestionIds.Distinct().Count() != request.QuestionIds.Count)
+            return BadRequest(new { message = "Chọn từ 1 đến 400 câu hỏi, không trùng nhau." });
+        var questions = await db.ExamQuestions.Where(q => q.ExamId == examId).ToListAsync(cancellationToken);
+        var removed = questions.Where(q => request.QuestionIds.Contains(q.Id)).ToList();
+        if (removed.Count != request.QuestionIds.Count) return NotFound(new { message = "Có câu hỏi không thuộc đề thi này." });
+        db.ExamQuestions.RemoveRange(removed);
+        if (request.SyncCounts) SyncCounts(exam, questions.Except(removed).ToList());
+        ExamRules.TouchDraft(exam); await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return Ok(new { removedCount = removed.Count });
+    }
+
+    private static void SyncCounts(Exam exam, List<ExamQuestion> questions)
+    {
+        if (questions.Count == 0) return;
+        exam.TargetQuestionCount = questions.Count;
+        exam.CommonQuestionCount = questions.Count(q => q.Group == "Common");
+        exam.SpecializedQuestionCount = questions.Count(q => q.Group == "Specialized");
     }
 
     [HttpPut("{questionId:int}")]
@@ -96,7 +128,6 @@ public sealed class ExamQuestionsController(AppDbContext db) : ControllerBase
     private bool ValidateShape(QuestionWriteRequest request)
     {
         if (request.Type is not ("SingleChoice" or "TrueFalse")) ModelState.AddModelError("type", "Vui lòng chọn loại câu hỏi hợp lệ.");
-        if (request.Group is not ("Common" or "Specialized")) ModelState.AddModelError("group", "Vui lòng chọn nhóm Kiến thức chung hoặc Chuyên môn.");
         if (request.Options is null || request.Options.Count > 6 || request.Options.Any(option => option is null || (option.Key?.Length ?? 0) > 20 || (option.Text?.Length ?? 0) > 2000)) ModelState.AddModelError("options", "Tối đa 6 phương án; mã tối đa 20 ký tự và nội dung tối đa 2.000 ký tự.");
         return ModelState.IsValid;
     }

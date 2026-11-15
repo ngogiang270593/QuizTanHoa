@@ -14,7 +14,7 @@ public static class QuestionWorkbook
 {
     public const int MaxRows = 500;
     public const int MaxFileBytes = 5 * 1024 * 1024;
-    public static readonly string[] Headers = ["Loại câu", "Nhóm câu", "Nội dung", "Phương án A", "Phương án B", "Phương án C", "Phương án D", "Đáp án đúng", "Điểm", "Giải thích", "Nguồn đối chiếu", "Cần đối chiếu nguồn"];
+    public static readonly string[] Headers = ["Loại câu", "Chủ đề", "Nội dung", "Phương án A", "Phương án B", "Phương án C", "Phương án D", "Đáp án đúng", "Điểm", "Giải thích", "Nguồn đối chiếu", "Cần đối chiếu nguồn"];
     public static readonly string[] OptionalHeaders = ["Câu tình huống"];
     private static readonly XNamespace Main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
     private static readonly XNamespace Rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
@@ -101,6 +101,7 @@ public static class QuestionWorkbook
         foreach (var pair in header.Cells)
         {
             var name = Normalize(pair.Value);
+            if (name == Normalize("Nhóm câu")) name = Normalize("Chủ đề");
             if (Headers.Concat(OptionalHeaders).Any(expected => Normalize(expected) == name) && !columns.TryAdd(name, pair.Key))
                 throw new InvalidDataException($"Dòng 1: cột {pair.Value} bị trùng.");
         }
@@ -154,12 +155,12 @@ public static class QuestionWorkbook
                 new XElement(Main + "cellXfs", new XAttribute("count", 2), new XElement(Main + "xf", new XAttribute("numFmtId", 0), new XAttribute("fontId", 0), new XAttribute("fillId", 0), new XAttribute("borderId", 0), new XAttribute("xfId", 0), new XElement(Main + "alignment", new XAttribute("wrapText", 1), new XAttribute("vertical", "top"))), new XElement(Main + "xf", new XAttribute("numFmtId", 0), new XAttribute("fontId", 1), new XAttribute("fillId", 2), new XAttribute("borderId", 0), new XAttribute("xfId", 0), new XAttribute("applyFill", 1), new XElement(Main + "alignment", new XAttribute("wrapText", 1))))));
             WriteXml(archive, "xl/worksheets/sheet1.xml", Sheet([Headers.Append(OptionalHeaders[0]).ToArray()]));
             WriteXml(archive, "xl/worksheets/sheet2.xml", Sheet([Headers.Append(OptionalHeaders[0]).ToArray(),
-                ["Một đáp án đúng", "Kiến thức chung", "MINH HỌA KỸ THUẬT: 1 + 1 bằng bao nhiêu?", "1", "2", "3", "4", "B", "1", "Ví dụ nhập liệu, không dùng làm câu thi chính thức.", "", "Không", "Không"],
-                ["Đúng/Sai", "Chuyên môn", "MINH HỌA KỸ THUẬT: số 2 lớn hơn số 1.", "Đúng", "Sai", "", "", "Đúng", "1", "Ví dụ nhập liệu, không phải nội dung nghiệp vụ đã duyệt.", "", "Không", "Có"]]));
+                ["Một đáp án đúng", "Nghị Quyết 57", "MINH HỌA KỸ THUẬT: 1 + 1 bằng bao nhiêu?", "1", "2", "3", "4", "B", "1", "Ví dụ nhập liệu, không dùng làm câu thi chính thức.", "", "Không", "Không"],
+                ["Đúng/Sai", "Nghị Quyết 57", "MINH HỌA KỸ THUẬT: số 2 lớn hơn số 1.", "Đúng", "Sai", "", "", "Đúng", "1", "Ví dụ nhập liệu, không phải nội dung nghiệp vụ đã duyệt.", "", "Không", "Có"]]));
             WriteXml(archive, "xl/worksheets/sheet3.xml", Sheet([
                 ["HƯỚNG DẪN NHẬP CÂU HỎI"],
                 ["Điền câu hỏi vào trang CauHoi, giữ nguyên dòng tiêu đề. Hệ thống không tự nhập trang ViDuMinhHoa."],
-                ["Loại câu: Một đáp án đúng hoặc Đúng/Sai. Nhóm câu: Kiến thức chung hoặc Chuyên môn."],
+                ["Loại câu: Một đáp án đúng hoặc Đúng/Sai. Chủ đề: tên chủ đề của câu hỏi."],
                 ["Một đáp án đúng: điền ít nhất hai phương án A–D và một đáp án A, B, C hoặc D."],
                 ["Đúng/Sai: đáp án Đúng hoặc Sai; có thể để trống các ô phương án để dùng cặp Đúng/Sai."],
                 ["Điểm phải lớn hơn 0; dùng dấu chấm hoặc dấu phẩy cho phần thập phân."],
@@ -167,7 +168,7 @@ public static class QuestionWorkbook
                 ["Nguồn đối chiếu và Cần đối chiếu nguồn là thông tin tùy chọn, không bắt buộc để duyệt đề."],
                 ["Xem trước trước khi nhập. Sửa đúng dòng Excel được báo lỗi; toàn bộ tệp phải hợp lệ mới được nhập."],
                 ["Mỗi tệp tối đa 500 câu, 5 MB; chỉ .xlsx, không macro, không công thức. Dán giá trị nếu có công thức."],
-                ["Cấu hình minh họa của đề: 30 câu, 30 phút, 10 câu chung và 20 câu chuyên môn; có thể thay đổi tại trang Đề thi."]], guide: true));
+                ["Cấu hình thời lượng và tổng số câu tại trang Đề thi; câu hỏi phân loại theo chủ đề."]], guide: true));
         }
         return output.ToArray();
     }

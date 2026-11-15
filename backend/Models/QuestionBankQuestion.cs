@@ -5,6 +5,7 @@ namespace Quiz_TanHoa.Api.Models;
 public sealed class QuestionBankQuestion
 {
     public int Id { get; set; }
+    [MaxLength(200)] public string Topic { get; set; } = "";
     [MaxLength(20)] public string Type { get; set; } = "SingleChoice";
     [MaxLength(5000)] public string Content { get; set; } = "";
     public string OptionsJson { get; set; } = "[]";

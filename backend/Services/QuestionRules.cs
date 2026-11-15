@@ -27,6 +27,7 @@ public static class QuestionRules
         question.IsScenario = request.IsScenario;
         question.Explanation = request.Explanation?.Trim() ?? "";
         question.Source = request.Source?.Trim() ?? "";
+        question.Topic = request.Topic?.Trim() ?? "";
         question.Group = request.Group ?? "";
         question.RequiresSourceReview = request.RequiresSourceReview;
         question.SourceReviewed = request.SourceReviewed && !string.IsNullOrWhiteSpace(question.Source);
@@ -39,7 +40,6 @@ public static class QuestionRules
         var errors = new List<ValidationIssue>();
         void Error(string field, string message) => errors.Add(new(field, message, question.Id == 0 ? null : question.Id, question.Position));
         if (question.Type is not ("SingleChoice" or "TrueFalse")) Error("type", "Loại câu hỏi phải là một đáp án đúng hoặc đúng/sai.");
-        if (question.Group is not ("Common" or "Specialized")) Error("group", "Nhóm câu phải là Kiến thức chung hoặc Chuyên môn.");
         if (string.IsNullOrWhiteSpace(question.Content)) Error("content", "Câu hỏi chưa có nội dung.");
         if (question.Content.Length > 5000) Error("content", "Nội dung câu hỏi không được vượt quá 5.000 ký tự.");
         var options = Options(question);

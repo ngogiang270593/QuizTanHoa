@@ -64,6 +64,7 @@ public static class AssignmentRules
         {
             if (!assignment.User.IsActive || assignment.User.Role != AppRoles.Candidate)
                 errors.Add(new("assignments", $"Tài khoản {assignment.User.Username} không còn là thí sinh đang hoạt động."));
+            if (competition.Status == CompetitionStatuses.Draft && assignment.Exam is not null && assignment.ExamVersion is not null && (assignment.Exam.DraftRevision != assignment.ExamVersion.DraftRevision || assignment.Exam.ReviewStatus == "PendingReview" || assignment.Exam.CurrentApprovedVersionId != assignment.ExamVersionId)) errors.Add(new("exams", "Cần duyệt và phân công đúng phiên bản hiện tại trước khi công khai."));
             if (Metadata(assignment) is null)
                 errors.Add(new("assignments", $"Tài khoản {assignment.User.Username} chưa có đề đã duyệt hợp lệ thuộc cuộc thi này."));
         }

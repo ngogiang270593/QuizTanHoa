@@ -45,10 +45,10 @@ public sealed class CompetitionScheduleController(AppDbContext db, VietnamClock 
     private DateTime? Parse(string? value, string field)
     {
         if (!DateTime.TryParseExact(value,
-                ["dd/MM/yyyy HH:mm", "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd'T'HH:mm:ss"],
+                ["dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy HH:mm", "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd'T'HH:mm:ss"],
                 CultureInfo.InvariantCulture, DateTimeStyles.None, out var local))
         {
-            ModelState.AddModelError(field, "Vui lòng nhập ngày giờ theo dạng dd/MM/yyyy HH:mm, theo giờ Việt Nam.");
+            ModelState.AddModelError(field, "Vui lòng nhập ngày giờ theo dạng dd/MM/yyyy HH:mm:ss, theo giờ Việt Nam.");
             return null;
         }
         try { return clock.ScheduleLocalToUtc(DateTime.SpecifyKind(local, DateTimeKind.Unspecified)); }
@@ -56,7 +56,7 @@ public sealed class CompetitionScheduleController(AppDbContext db, VietnamClock 
     }
 
     private static string? Local(DateTime? value) => value.HasValue
-        ? TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc), TimeZoneInfo.FindSystemTimeZoneById(VietnamClock.TimeZoneId)).ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)
+        ? TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc), TimeZoneInfo.FindSystemTimeZoneById(VietnamClock.TimeZoneId)).ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture)
         : null;
 
     private async Task<object> Profile(Competition competition)

@@ -1,0 +1,11 @@
+{
+  "name": "quiztanhoa-cloud",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild ../worker/index.mjs --bundle --format=esm --platform=browser --target=es2022 --outfile=../frontend/dist-web/_worker.js",
+    "test": "node --test ../worker/tests/*.test.mjs"
+  },
+  "dependencies": { "fflate": "0.8.3" },
+  "devDependencies": { "esbuild": "0.25.12" }
+}

@@ -1,5 +1,7 @@
 # Hội thi nghiệp vụ xã Tân Hòa
 
+Website online: **https://quiztanhoa.pages.dev** — Cloudflare Pages/Functions và Firebase Firestore. Hướng dẫn vận hành ở [docs/deployment-firebase-cloudflare.md](docs/deployment-firebase-cloudflare.md), kết quả kiểm tra ở [docs/cloud-verification.md](docs/cloud-verification.md). Bản cloud dùng API trong `worker/`; các hướng dẫn ASP.NET/SQLite bên dưới áp dụng cho bản local/Electron.
+
 Website tiếng Việt cho cán bộ, công chức xã Tân Hòa. Dự án hiện có nền tảng phân quyền, quản trị Cuộc thi, Đề thi, Lịch thi, **Phân công dự thi và Công bố cuộc thi**, sử dụng React, ASP.NET Core 8 và SQLite trong cùng cơ sở dữ liệu.
 
 Đã có đăng nhập, khôi phục phiên, đăng xuất phía máy chủ, hai không gian Ban Tổ chức / Thí sinh, quản trị tài khoản thí sinh, cuộc thi, đề theo lĩnh vực, câu hỏi, nhập Excel, lịch thi, duyệt phiên bản cố định, phân công, công bố và luồng làm/nộp bài. Mỗi cuộc thi chỉ có một lượt hợp lệ cho một tài khoản; lượt gắn với phiên đăng nhập và một tab có lease, hạn nộp cố định, tự chốt tại máy chủ khi hết giờ và có thể khôi phục sau tải lại. Ban Tổ chức có thể chuyển phiên hoặc cấp lượt thay thế có ghi lý do/audit. Kết quả được tự chấm theo snapshot, xếp hạng theo nhóm đề dựa trên số câu đúng rồi thời gian làm bài, và xuất Excel. Mục **Xét giải** cấu hình giải theo nhóm xếp hạng, lập/lưu dự kiến, ghi nhận lý do điều chỉnh, duyệt và công bố danh sách bất biến; thí sinh chỉ xem điểm theo cài đặt và chỉ thấy danh sách giải sau khi phát hành.

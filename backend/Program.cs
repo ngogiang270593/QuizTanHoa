@@ -60,8 +60,20 @@ var connection = new SqliteConnectionStringBuilder
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connection));
 builder.Services.AddHostedService<AttemptFinalizerService>();
 builder.Services.AddControllers();
+var configuredOrigins = (Environment.GetEnvironmentVariable("QUIZ_TANHOA_ALLOWED_ORIGINS") ?? "")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+foreach (var origin in configuredOrigins)
+{
+    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+        || uri.Scheme != "https" || uri.GetLeftPart(UriPartial.Authority) != origin)
+        throw new InvalidOperationException("QUIZ_TANHOA_ALLOWED_ORIGINS phải chứa các HTTPS origin, không có đường dẫn hoặc dấu / cuối.");
+}
+var allowedOrigins = configuredOrigins.Length > 0 ? configuredOrigins : new[]
+{
+    "http://localhost:5175", "http://127.0.0.1:5175", "http://localhost:4175", "http://127.0.0.1:4175"
+};
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
-    .WithOrigins("http://localhost:5175", "http://127.0.0.1:5175", "http://localhost:4175", "http://127.0.0.1:4175")
+    .WithOrigins(allowedOrigins)
     .AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
@@ -111,6 +123,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
                 new Claim("FullName", session.User.FullName),
                 new Claim("MustChangePassword", session.User.MustChangePassword ? "true" : "false")
             }, JwtBearerDefaults.AuthenticationScheme));
+            await ProcessAccess.HydrateAsync(db, session.User);
             CurrentAccount.Set(context.HttpContext, session.User, session);
         },
         OnChallenge = async context =>
@@ -154,6 +167,12 @@ using (var scope = app.Services.CreateScope())
 app.UseExceptionHandler(handler => handler.Run(async context =>
 {
     var failure = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+    if (failure is WorkflowConflictException)
+    {
+        context.Response.StatusCode = 409;
+        await context.Response.WriteAsJsonAsync(new { message = failure.Message });
+        return;
+    }
     if (failure is DbUpdateConcurrencyException)
     {
         context.Response.StatusCode = StatusCodes.Status409Conflict;
@@ -180,17 +199,19 @@ app.UseCors();
 app.UseAuthentication();
 app.Use(async (context, next) =>
 {
-    var mustChangePassword = string.Equals(
-        context.User.FindFirst("MustChangePassword")?.Value, "true", StringComparison.Ordinal);
-    var path = context.Request.Path.Value ?? "";
-    var allowedPath = path.Equals("/api/Auth/change-password", StringComparison.OrdinalIgnoreCase)
-        || path.Equals("/api/Auth/me", StringComparison.OrdinalIgnoreCase)
-        || path.Equals("/api/Auth/logout", StringComparison.OrdinalIgnoreCase);
-    if (context.User.Identity?.IsAuthenticated == true && mustChangePassword && !allowedPath)
+    if (context.User.Identity?.IsAuthenticated == true && context.Request.Path.StartsWithSegments("/api/organizer"))
     {
-        context.Response.StatusCode = StatusCodes.Status403Forbidden;
-        await context.Response.WriteAsJsonAsync(new { message = "Bạn phải đổi mật khẩu khởi tạo trước khi sử dụng hệ thống." });
-        return;
+        var user = CurrentAccount.User(context);
+        var needed = WorkflowAccess.Required(context.Request.Path.Value!.ToLowerInvariant().Split('/', StringSplitOptions.RemoveEmptyEntries), context.Request.Method);
+        if (needed is not null && !needed.Any(p => WorkflowAccess.Has(user, p)))
+        {
+            context.Response.StatusCode = 403;
+            await context.Response.WriteAsJsonAsync(new { message = "Tài khoản chưa được cấp quyền thực hiện chức năng này." }); return;
+        }
+    }
+    if (context.User.Identity?.IsAuthenticated == true && context.Request.Path.StartsWithSegments("/api/candidate") && !CurrentAccount.User(context).ProcessPermissionKeys.Contains("takeExam"))
+    {
+        context.Response.StatusCode = 403; await context.Response.WriteAsJsonAsync(new { message = "Bạn chưa được gán quy trình dự thi." }); return;
     }
     await next();
 });

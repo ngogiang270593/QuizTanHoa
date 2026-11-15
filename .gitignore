@@ -18,3 +18,10 @@ release/
 *.log
 *.user
 .DS_Store
+.firebase/
+*-firebase-adminsdk-*.json
+firebase-debug.log*
+.npm-cache/
+.wrangler/
+.dev.vars
+.dev.vars.*

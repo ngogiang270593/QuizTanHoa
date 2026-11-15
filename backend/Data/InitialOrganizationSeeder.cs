@@ -309,7 +309,7 @@ public static class InitialOrganizationSeeder
             Role = role,
             IsActive = true,
             IsDemo = false,
-            MustChangePassword = true
+            MustChangePassword = false
         };
         db.Users.Add(user);
         await db.SaveChangesAsync();

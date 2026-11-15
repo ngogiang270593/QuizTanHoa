@@ -9,8 +9,8 @@ public sealed class ExamWriteRequest
     public int FieldGroupId { get; set; }
     [Range(1, 480)] public int DurationMinutes { get; set; } = 30;
     [Range(1, 500)] public int TargetQuestionCount { get; set; } = 30;
-    [Range(0, 500)] public int CommonQuestionCount { get; set; } = 10;
-    [Range(0, 500)] public int SpecializedQuestionCount { get; set; } = 20;
+    [Range(0, 500)] public int CommonQuestionCount { get; set; } = 0;
+    [Range(0, 500)] public int SpecializedQuestionCount { get; set; } = 0;
 }
 
 public sealed class FieldGroupWriteRequest
@@ -22,6 +22,7 @@ public sealed class FieldGroupWriteRequest
 
 public sealed class QuestionWriteRequest
 {
+    [MaxLength(200)] public string Topic { get; set; } = "";
     [MaxLength(20)] public string Type { get; set; } = "SingleChoice";
     [MaxLength(5000)] public string Content { get; set; } = "";
     public List<QuestionOption> Options { get; set; } = [];

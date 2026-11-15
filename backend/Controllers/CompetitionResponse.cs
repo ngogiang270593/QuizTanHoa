@@ -4,8 +4,10 @@ namespace Quiz_TanHoa.Api.Controllers;
 
 internal static class CompetitionResponse
 {
-    public static object Profile(Competition competition) => new
+    public static object Profile(Competition competition, int? initialExamId = null, int initialQuestionCount = 0) => new
     {
+        initialExamId,
+        initialQuestionCount,
         competition.Id,
         competition.Name,
         competition.Description,

@@ -26,8 +26,10 @@ public static class CurrentAccount
         user.Role,
         user.IsActive,
         user.IsDemo,
-        user.MustChangePassword,
+        mustChangePassword = false,
+        processIds = ProcessAccess.Ids(user), assignedProcesses = user.AssignedProcesses, processPermissionKeys = user.ProcessPermissionKeys,
+        accountGroup = WorkflowAccess.Group(user), workflowPermissions = WorkflowAccess.Permissions(user), accessLabel = WorkflowAccess.Label(user),
         expiresAt = DateTime.SpecifyKind(expiresAt, DateTimeKind.Utc),
-        permissions = AppRoles.Permissions(user.Role)
+        permissions = AppRoles.Permissions(user)
     };
 }

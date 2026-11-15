@@ -147,7 +147,7 @@ export default function CandidateAttempt({ competitionId, navigate, attemptTab }
       }
     };
     void renew();
-    const heartbeat = setInterval(renew, 10000);
+    const heartbeat = setInterval(renew, attempt.leaseHeartbeatMilliseconds || 10000);
     return () => { active = false; clearInterval(heartbeat); };
   }, [attempt?.attemptId, attempt?.attemptStatus, attemptConfig, attemptUrl]);
 

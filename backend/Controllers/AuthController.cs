@@ -31,6 +31,7 @@ public class AuthController(AppDbContext db, JwtSettings jwt) : ControllerBase
         if (!user.IsActive || !AppRoles.IsKnown(user.Role))
             return StatusCode(403, new { message = "Tài khoản không có quyền truy cập." });
 
+        await ProcessAccess.HydrateAsync(db, user);
         var now = DateTime.UtcNow;
         var session = new AuthSession
         {
@@ -66,9 +67,11 @@ public class AuthController(AppDbContext db, JwtSettings jwt) : ControllerBase
             user.Role,
             user.IsActive,
             user.IsDemo,
-            user.MustChangePassword,
+            mustChangePassword = false,
             expiresAt = session.ExpiresAtUtc,
-            permissions = AppRoles.Permissions(user.Role)
+            processIds = ProcessAccess.Ids(user), assignedProcesses = user.AssignedProcesses, processPermissionKeys = user.ProcessPermissionKeys,
+            accountGroup = WorkflowAccess.Group(user), workflowPermissions = WorkflowAccess.Permissions(user), accessLabel = WorkflowAccess.Label(user),
+            permissions = AppRoles.Permissions(user)
         });
     }
 

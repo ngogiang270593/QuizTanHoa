@@ -14,8 +14,25 @@ namespace Quiz_TanHoa.Api.Controllers;
 [Authorize(Policy = AppRoles.Organizer)]
 public sealed class QuestionBankController(AppDbContext db, VietnamClock clock) : ControllerBase
 {
+    [HttpPost("set-topic")]
+    public async Task<IActionResult> SetTopic(BankTopicRequest request)
+    {
+        if (request.QuestionIds is null || request.QuestionIds.Count is < 1 or > 400 || request.QuestionIds.Distinct().Count() != request.QuestionIds.Count)
+            return BadRequest(new { message = "Chọn từ 1 đến 400 câu hỏi khác nhau." });
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        var topic = await db.QuestionTopics.SingleOrDefaultAsync(t => t.Id == request.TopicId);
+        if (topic is null) return NotFound(new { message = "Chủ đề không tồn tại." });
+        var selected = await db.QuestionBankQuestions.Where(q => q.IsActive && request.QuestionIds.Contains(q.Id)).ToListAsync();
+        if (selected.Count != request.QuestionIds.Count) return NotFound(new { message = "Một hoặc nhiều câu hỏi không còn hoạt động." });
+        foreach (var q in selected) { q.Topic = topic.Name; q.UpdatedAtUtc = clock.UtcNow; }
+        var linked = await db.ExamQuestions.Include(q => q.Exam).Where(q => request.QuestionIds.Contains(q.BankQuestionId ?? 0)).ToListAsync();
+        foreach (var q in linked) q.Topic = topic.Name;
+        foreach (var exam in linked.Select(q => q.Exam).DistinctBy(e => e.Id)) ExamRules.TouchDraft(exam);
+        await db.SaveChangesAsync(); await transaction.CommitAsync();
+        return Ok(new { updatedCount = selected.Count });
+    }
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] string? search, [FromQuery] string? group, CancellationToken cancellationToken)
+    public async Task<IActionResult> List([FromQuery] string? search, [FromQuery] string? group, [FromQuery] string? topic, CancellationToken cancellationToken)
     {
         var questions = db.QuestionBankQuestions.AsNoTracking().Where(question => question.IsActive);
         if (!string.IsNullOrWhiteSpace(search))
@@ -29,15 +46,15 @@ public sealed class QuestionBankController(AppDbContext db, VietnamClock clock) 
         var results = await questions.OrderByDescending(question => question.UpdatedAtUtc).ThenBy(question => question.Id)
             .Select(question => new
             {
-                question.Id, question.Type, question.Content, question.OptionsJson, question.CorrectAnswer,
+                question.Id, question.Topic, question.Type, question.Content, question.OptionsJson, question.CorrectAnswer,
                 question.Points, question.IsScenario, question.Explanation, question.Source, question.Group,
                 question.RequiresSourceReview, question.SourceReviewed, question.ReviewedByUserId,
                 question.ReviewedAtUtc, question.IsActive, question.CreatedAtUtc, question.UpdatedAtUtc,
                 linkedDraftCount = db.ExamQuestions.Count(linked => linked.BankQuestionId == question.Id)
             }).ToListAsync(cancellationToken);
-        return Ok(results.Select(item => new
+        return Ok(results.Where(item => string.IsNullOrWhiteSpace(topic) || (!string.IsNullOrWhiteSpace(item.Topic) ? item.Topic.Trim() : !string.IsNullOrWhiteSpace(item.Source) ? item.Source.Split('|')[0].Trim() : "Chưa phân chủ đề") == topic).Select(item => new
         {
-            item.Id, item.Type, item.Content, options = DeserializeOptions(item.OptionsJson), item.CorrectAnswer,
+            item.Id, item.Topic, item.Type, item.Content, options = DeserializeOptions(item.OptionsJson), item.CorrectAnswer,
             item.Points, item.IsScenario, item.Explanation, item.Source, item.Group, item.RequiresSourceReview,
             item.SourceReviewed, item.ReviewedByUserId,
             reviewedAtUtc = CompetitionResponse.Utc(item.ReviewedAtUtc),
@@ -54,6 +71,7 @@ public sealed class QuestionBankController(AppDbContext db, VietnamClock clock) 
         var draft = new ExamQuestion();
         QuestionRules.Apply(draft, request, CurrentAccount.User(HttpContext).Id);
         var question = CopyToBank(draft, CurrentAccount.User(HttpContext).Id, now);
+        question.Topic = request.Topic?.Trim() ?? "";
         db.QuestionBankQuestions.Add(question);
         await db.SaveChangesAsync(cancellationToken);
         return StatusCode(201, ExamResponse.Question(question));
@@ -69,6 +87,7 @@ public sealed class QuestionBankController(AppDbContext db, VietnamClock clock) 
         var draft = new ExamQuestion();
         QuestionRules.Apply(draft, request, CurrentAccount.User(HttpContext).Id);
         CopyFields(draft, question);
+        question.Topic = request.Topic?.Trim() ?? "";
         question.UpdatedAtUtc = clock.UtcNow;
 
         var linkedQuestions = await db.ExamQuestions.Include(item => item.Exam)
@@ -105,7 +124,6 @@ public sealed class QuestionBankController(AppDbContext db, VietnamClock clock) 
     private bool ValidateShape(QuestionWriteRequest request)
     {
         if (request.Type is not ("SingleChoice" or "TrueFalse")) ModelState.AddModelError("type", "Vui lòng chọn loại câu hỏi hợp lệ.");
-        if (request.Group is not ("Common" or "Specialized")) ModelState.AddModelError("group", "Vui lòng chọn nhóm Kiến thức chung hoặc Chuyên môn.");
         if (request.Options is null || request.Options.Count > 6 || request.Options.Any(option => option is null || (option.Key?.Length ?? 0) > 20 || (option.Text?.Length ?? 0) > 2000))
             ModelState.AddModelError("options", "Tối đa 6 phương án; mã tối đa 20 ký tự và nội dung tối đa 2.000 ký tự.");
         return ModelState.IsValid;
@@ -134,6 +152,7 @@ public sealed class QuestionBankController(AppDbContext db, VietnamClock clock) 
 
     internal static void CopyFields(QuestionBankQuestion source, ExamQuestion target)
     {
+        target.Topic = source.Topic;
         target.Type = source.Type;
         target.Content = source.Content;
         target.OptionsJson = source.OptionsJson;
@@ -151,6 +170,7 @@ public sealed class QuestionBankController(AppDbContext db, VietnamClock clock) 
 
     internal static void CopyFields(ExamQuestion source, QuestionBankQuestion target)
     {
+        target.Topic = source.Topic;
         target.Type = source.Type;
         target.Content = source.Content;
         target.OptionsJson = source.OptionsJson;
@@ -173,8 +193,15 @@ public sealed class QuestionBankController(AppDbContext db, VietnamClock clock) 
     }
 }
 
+public sealed class BankTopicRequest
+{
+    public int TopicId { get; set; }
+    public List<int> QuestionIds { get; set; } = [];
+}
+
 /// <summary>Identifiers of active bank questions to add to an exam draft.</summary>
 public sealed class QuestionBankImportRequest
 {
     public List<int> QuestionIds { get; set; } = [];
+    public bool SyncCounts { get; set; }
 }

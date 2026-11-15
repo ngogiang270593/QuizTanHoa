@@ -24,6 +24,11 @@ public sealed class Exam
     public int TargetQuestionCount { get; set; } = 30;
     public int CommonQuestionCount { get; set; } = 10;
     public int SpecializedQuestionCount { get; set; } = 20;
+    public string ReviewStatus { get; set; } = "Draft";
+    public int? SubmittedRevision { get; set; }
+    public int? SubmittedByUserId { get; set; }
+    public DateTime? SubmittedAtUtc { get; set; }
+    public string ReviewNote { get; set; } = "";
     public int DraftRevision { get; set; } = 1;
     public int? CurrentApprovedVersionId { get; set; }
     public bool IsDemo { get; set; }
@@ -34,6 +39,7 @@ public sealed class Exam
 
 public sealed class ExamQuestion
 {
+    [MaxLength(2000)] public string Topic { get; set; } = "";
     public int Id { get; set; }
     public int ExamId { get; set; }
     public Exam Exam { get; set; } = null!;

@@ -1,3 +1,5 @@
+import CandidatePortal,{CandidateFlowProgress} from './CandidatePortal.jsx';
+import {useAccess} from './AccessContext.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { api, isConnectionError } from './api.js';
 import './AssignmentWorkspace.css';
@@ -76,11 +78,11 @@ export function CompetitionPublication({ competitionId, revision = 0, onPublishe
     try {
       await api.post(`${base}/publish`, undefined, { signal: controller.signal });
       if (controller.signal.aborted) return;
-      setNotice('Đã công bố cuộc thi. Thí sinh được phân đề có thể xem cuộc thi trong tài khoản của mình.');
+      setNotice('Đã công khai cuộc thi. Thí sinh được phân đề có thể xem cuộc thi trong tài khoản của mình.');
       setAttempt(value => value + 1);
       onPublished?.('Published');
     } catch (failure) {
-      if (!controller.signal.aborted) { setError(errorText(failure, 'Chưa thể công bố cuộc thi. Vui lòng kiểm tra các điều kiện bên dưới.')); setAttempt(value => value + 1); }
+      if (!controller.signal.aborted) { setError(errorText(failure, 'Chưa thể công khai cuộc thi. Vui lòng kiểm tra các điều kiện bên dưới.')); setAttempt(value => value + 1); }
     } finally {
       if (!controller.signal.aborted) setBusy(false);
       if (request.current === controller) request.current = null;
@@ -89,10 +91,10 @@ export function CompetitionPublication({ competitionId, revision = 0, onPublishe
   const state = publication.data;
   const published = state?.status === 'Published';
   const ended = state?.status === 'Ended';
-  return <section className="panel assignment-publication" aria-label="Công bố cuộc thi">
-    <div className="assignment-section-heading"><div><span className="eyebrow">CÔNG BỐ CUỘC THI</span><h2>{published ? 'Cuộc thi đã công bố' : ended ? 'Cuộc thi đã kết thúc' : 'Sẵn sàng cho thí sinh'}</h2><p>Cuộc thi chỉ hiển thị cho tài khoản đã được phân đề sau khi công bố.</p></div><button className="button button-primary" type="button" onClick={publish} disabled={busy || publication.loading || !state || published || ended}>{busy ? 'Đang công bố...' : published ? 'Đã công bố' : ended ? 'Đã kết thúc' : 'Công bố cuộc thi'}</button></div>
+  return <section className="panel assignment-publication" aria-label="Công khai cuộc thi">
+    <div className="assignment-section-heading"><div><span className="eyebrow">CÔNG BỐ CUỘC THI</span><h2>{published ? 'Cuộc thi đã công bố' : ended ? 'Cuộc thi đã kết thúc' : 'Sẵn sàng cho thí sinh'}</h2><p>Cuộc thi chỉ hiển thị cho tài khoản đã được phân đề sau khi công bố.</p></div><button className="button button-primary" type="button" onClick={publish} disabled={busy || publication.loading || !state || published || ended}>{busy ? 'Đang công bố...' : published ? 'Đã công bố' : ended ? 'Đã kết thúc' : 'Công khai cuộc thi'}</button></div>
     <Notice>{error || publication.error}</Notice><Notice kind="success">{notice}</Notice>
-    {publication.loading && !state ? <Loading /> : state && <><div className="assignment-publication-stats"><span className={`competition-status competition-status-${state.status?.toLowerCase()}`}>{STATUS_NAMES[state.status] || state.status}</span><span>{state.approvedExamCount ?? 0} đề đã duyệt</span><span>{state.assignmentCount ?? 0} thí sinh đã phân công</span>{state.publishedAtUtc && <span>Công bố: <DateText value={state.publishedAtUtc} /></span>}</div>{!published && !ended && <>{state.canPublish ? <Notice kind="success">Đã có lịch hợp lệ, đề đã duyệt và thí sinh được phân đề. Có thể công bố cuộc thi.</Notice> : <div className="assignment-publication-checks"><strong>Cần hoàn tất trước khi công bố:</strong><ul>{asList(state.errors).map((issue, index) => <li key={index}>{issueText(issue)}</li>)}</ul></div>}</>}</>}
+    {publication.loading && !state ? <Loading /> : state && <><div className="assignment-publication-stats"><span className={`competition-status competition-status-${state.status?.toLowerCase()}`}>{STATUS_NAMES[state.status] || state.status}</span><span>{state.approvedExamCount ?? 0} đề đã duyệt</span><span>{state.assignmentCount ?? 0} thí sinh đã phân công</span>{state.publishedAtUtc && <span>Công bố: <DateText value={state.publishedAtUtc} /></span>}</div>{!published && !ended && <>{state.canPublish ? <Notice kind="success">Đã có lịch hợp lệ, đề đã duyệt và thí sinh được phân đề. Có thể công khai cuộc thi.</Notice> : <div className="assignment-publication-checks"><strong>Cần hoàn tất trước khi công bố:</strong><ul>{asList(state.errors).map((issue, index) => <li key={index}>{issueText(issue)}</li>)}</ul></div>}</>}</>}
   </section>;
 }
 
@@ -253,6 +255,7 @@ function CompetitionResultsPanel({ competitionId, revision }) {
 }
 
 export function AwardReviewWorkspace({ competitionId }) {
+  const {can}=useAccess();
   const base = `/organizer/competitions/${competitionId}/awards`;
   const [revision, setRevision] = useState(0);
   const resource = useData(base, revision);
@@ -270,7 +273,7 @@ export function AwardReviewWorkspace({ competitionId }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const state = resource.data;
-  const locked = state?.status === 'Published' || state?.competitionStatus === 'Ended';
+  const locked = !can('operate') || state?.status === 'Published' || state?.competitionStatus === 'Ended';
   const resultRows = asList(state?.results);
   const awardNames = groupName => categories.filter(item => item.rankingGroupName === groupName);
   useEffect(() => {
@@ -413,10 +416,10 @@ export function AwardReviewWorkspace({ competitionId }) {
       <label className="assignment-award-confirm"><input type="checkbox" checked={tieReviewConfirmed} onChange={event => setTieReviewConfirmed(event.target.checked)} disabled={Boolean(busy) || locked} />Đã rà soát và xử lý các trường hợp đồng hạng tại vị trí xét thưởng theo thể lệ</label>
       <label className="assignment-award-reason">Ghi chú duyệt<textarea rows="2" maxLength="1000" value={approvalReason} onChange={event => setApprovalReason(event.target.value)} disabled={Boolean(busy) || state?.status !== 'Draft'} /></label>
       <div className="assignment-actions">
-        <button type="button" className="button button-secondary" disabled={Boolean(busy) || state?.status !== 'Draft' || !state?.revision} onClick={approve}>{busy === 'approve' ? 'Đang duyệt...' : 'Duyệt danh sách'}</button>
-        <button type="button" className="button button-primary" disabled={Boolean(busy) || state?.status !== 'Approved' || state?.competitionStatus === 'Draft'} onClick={publish}>{busy === 'publish' ? 'Đang công bố...' : 'Công bố danh sách đạt giải'}</button>
+        <button type="button" className="button button-secondary" disabled={!can('approve') || Boolean(busy) || state?.status !== 'Draft' || !state?.revision} onClick={approve}>{busy === 'approve' ? 'Đang duyệt...' : 'Duyệt danh sách'}</button>
+        <button type="button" className="button button-primary" disabled={!can('operate') || Boolean(busy) || state?.status !== 'Approved' || state?.competitionStatus === 'Draft'} onClick={publish}>{busy === 'publish' ? 'Đang công bố...' : 'Công bố danh sách đạt giải'}</button>
         <button type="button" className="button button-secondary" disabled={Boolean(busy) || state?.status !== 'Published'} onClick={exportExcel}>{busy === 'export' ? 'Đang xuất...' : 'Xuất Excel'}</button>
-        <button type="button" className="button assignment-button-danger" disabled={Boolean(busy) || state?.competitionStatus !== 'Published' || state?.status !== 'Published'} onClick={endCompetition}>{busy === 'end' ? 'Đang kết thúc...' : 'Kết thúc cuộc thi'}</button>
+        <button type="button" className="button assignment-button-danger" disabled={!can('operate') || Boolean(busy) || state?.competitionStatus !== 'Published' || state?.status !== 'Published'} onClick={endCompetition}>{busy === 'end' ? 'Đang kết thúc...' : 'Kết thúc cuộc thi'}</button>
       </div>
       {state?.approvedAtUtc && <p className="assignment-hint">Duyệt lúc <DateText value={state.approvedAtUtc} /> · mã người duyệt {state.approvedByUserId}</p>}
       {state?.publishedAtUtc && <p className="assignment-hint">Công bố lúc <DateText value={state.publishedAtUtc} /> · mã người công bố {state.publishedByUserId}</p>}
@@ -425,7 +428,7 @@ export function AwardReviewWorkspace({ competitionId }) {
   </div>;
 }
 
-export function isCandidateWorkspacePath(path) { return /^\/thi-sinh\/cuoc-thi(?:\/\d+(?:\/(?:de-thi|huong-dan|lam-bai))?)?$/.test(path); }
+export function isCandidateWorkspacePath(path) { return ['/thi-sinh/lich-thi','/thi-sinh/ket-qua'].includes(path) || /^\/thi-sinh\/cuoc-thi(?:\/\d+(?:\/(?:de-thi|huong-dan|lam-bai))?)?$/.test(path); }
 
 function AssignedExam({ competition, showLink = true, navigate }) {
   const exam = competition.assignedExam;
@@ -447,7 +450,7 @@ export function CandidateCompetitionList({ navigate }) {
 export function CandidateWorkspace({ path, navigate }) {
   const attemptTab = useAttemptTab();
   const match = path.match(/^\/thi-sinh\/cuoc-thi\/(\d+)(?:\/(de-thi|huong-dan|lam-bai))?$/);
-  if (!match) return <CandidateCompetitionList navigate={navigate} />;
+  if (!match) return <CandidatePortal key={path} navigate={navigate} view={path === '/thi-sinh/ket-qua' ? 'results' : path === '/thi-sinh/lich-thi' ? 'schedule' : 'all'} />;
   if (match[2] === 'lam-bai') return <CandidateAttempt key={match[1]} competitionId={match[1]} navigate={navigate} attemptTab={attemptTab} />;
   return <CandidateDetail key={`${match[1]}-${match[2] || ''}`} competitionId={match[1]} examOnly={match[2] === 'de-thi'} guide={match[2] === 'huong-dan'} navigate={navigate} attemptTab={attemptTab} />;
 }
@@ -477,7 +480,7 @@ function CandidateDetail({ competitionId, examOnly, guide, navigate, attemptTab 
   const active = competition.attemptStatus === 'InProgress';
   const submitted = competition.attemptStatus === 'Submitted';
   const expired = competition.attemptStatus === 'Expired';
-  return <div className="candidate-detail"><LocalLink className="text-button candidate-back" to={CANDIDATE_ROOT} navigate={navigate}>← Cuộc thi của tôi</LocalLink><section className="panel assignment-section"><div className="competition-row-badges"><span className={`competition-status ${competition.status === 'Ended' ? 'competition-status-ended' : 'competition-status-published'}`}>{competition.status === 'Ended' ? 'Đã kết thúc' : 'Đã công bố'}</span>{competition.isDemo && <span className="demo-label">Dữ liệu minh họa</span>}</div><h2>{competition.name}</h2>{!examOnly && competition.description && <p className="competition-plain-text">{competition.description}</p>}<AssignedExam competition={competition} navigate={navigate} showLink={!examOnly} /><p className="assignment-attempt">{competition.attemptStatusLabel || ATTEMPT_NAMES[competition.attemptStatus] || 'Chưa bắt đầu'}</p>{!examOnly && <Notice kind="info">{active ? 'Bạn đã bắt đầu lượt thi. Có thể tiếp tục với phiên hiện tại.' : submitted ? 'Bài thi đã được nộp. Bạn có thể xem trạng thái, không thể làm lại.' : competition.canStart ? 'Đọc kỹ thể lệ và thông tin đề trước khi bắt đầu.' : competition.startBlockedReason || 'Chưa thể bắt đầu làm bài. Vui lòng theo dõi lịch thi.'}</Notice>}<ScheduleDetails competition={competition} /><p className="assignment-hint">Thời gian hiển thị theo Asia/Ho_Chi_Minh (UTC+7).</p>{!examOnly && competition.rules && <section className="candidate-rules"><h3>Thể lệ cuộc thi</h3><p className="competition-plain-text">{competition.rules}</p></section>}{!examOnly && <CandidateAwardsPanel resource={awardResource} />}{guide && <><div className="candidate-guide-note"><strong>Hướng dẫn dự thi</strong><p>Thời gian làm bài chỉ bắt đầu khi máy chủ xác nhận. Câu trả lời được lưu trên máy chủ sau mỗi thay đổi; chỉ trạng thái <strong>Đã lưu</strong> mới xác nhận đã đồng bộ.</p><p>Thứ tự câu hỏi và phương án được xáo trộn riêng cho lượt thi. Điểm và đáp án sẽ hiển thị theo lịch công bố của Ban Tổ chức.</p></div>{competition.status === 'Ended' ? <Notice kind="info">Cuộc thi đã kết thúc. Thông tin điểm và giải thưởng được hiển thị theo trạng thái công bố.</Notice> : <>{startError && <Notice>{startError}</Notice>}<button className="button button-primary" type="button" onClick={begin} disabled={!attemptTab.ready || starting || (!competition.canStart && !active && !submitted && !expired)}>{starting ? 'Đang xác nhận...' : active ? 'Tiếp tục làm bài' : submitted || expired ? 'Xem trạng thái bài thi' : 'Bắt đầu'}</button></>}</>}{examOnly && <LocalLink className="button button-secondary" to={`${CANDIDATE_ROOT}/${competition.id}/huong-dan`} navigate={navigate}>Về hướng dẫn dự thi</LocalLink>}</section></div>;
+  return <div className="candidate-detail"><LocalLink className="text-button candidate-back" to={CANDIDATE_ROOT} navigate={navigate}>← Cuộc thi của tôi</LocalLink><CandidateFlowProgress current={submitted || expired || competition.status === 'Ended' ? 'results' : active ? 'attempt' : guide ? 'guide' : 'schedule'}/><section className="panel assignment-section"><div className="competition-row-badges"><span className={`competition-status ${competition.status === 'Ended' ? 'competition-status-ended' : 'competition-status-published'}`}>{competition.status === 'Ended' ? 'Đã kết thúc' : 'Đã công bố'}</span>{competition.isDemo && <span className="demo-label">Dữ liệu minh họa</span>}</div><h2>{competition.name}</h2>{!examOnly && competition.description && <p className="competition-plain-text">{competition.description}</p>}<AssignedExam competition={competition} navigate={navigate} showLink={!examOnly} /><p className="assignment-attempt">{competition.attemptStatusLabel || ATTEMPT_NAMES[competition.attemptStatus] || 'Chưa bắt đầu'}</p>{!examOnly && <Notice kind="info">{active ? 'Bạn đã bắt đầu lượt thi. Có thể tiếp tục với phiên hiện tại.' : submitted ? 'Bài thi đã được nộp. Bạn có thể xem trạng thái, không thể làm lại.' : competition.canStart ? 'Đọc kỹ thể lệ và thông tin đề trước khi bắt đầu.' : competition.startBlockedReason || 'Chưa thể bắt đầu làm bài. Vui lòng theo dõi lịch thi.'}</Notice>}<ScheduleDetails competition={competition} /><p className="assignment-hint">Thời gian hiển thị theo Asia/Ho_Chi_Minh (UTC+7).</p>{!examOnly && competition.rules && <section className="candidate-rules"><h3>Thể lệ cuộc thi</h3><p className="competition-plain-text">{competition.rules}</p></section>}{!examOnly && <CandidateAwardsPanel resource={awardResource} />}{guide && <><div className="candidate-guide-note"><strong>Hướng dẫn dự thi</strong><p>Thời gian làm bài chỉ bắt đầu khi máy chủ xác nhận. Câu trả lời được lưu trên máy chủ sau mỗi thay đổi; chỉ trạng thái <strong>Đã lưu</strong> mới xác nhận đã đồng bộ.</p><p>Thứ tự câu hỏi và phương án được xáo trộn riêng cho lượt thi. Điểm và đáp án sẽ hiển thị theo lịch công bố của Ban Tổ chức.</p></div>{competition.status === 'Ended' ? <Notice kind="info">Cuộc thi đã kết thúc. Thông tin điểm và giải thưởng được hiển thị theo trạng thái công bố.</Notice> : <>{startError && <Notice>{startError}</Notice>}<button className="button button-primary" type="button" onClick={begin} disabled={!attemptTab.ready || starting || (!competition.canStart && !active && !submitted && !expired)}>{starting ? 'Đang xác nhận...' : active ? 'Tiếp tục làm bài' : submitted || expired ? 'Xem trạng thái bài thi' : 'Bắt đầu'}</button></>}</>}{examOnly && <LocalLink className="button button-secondary" to={`${CANDIDATE_ROOT}/${competition.id}/huong-dan`} navigate={navigate}>Về hướng dẫn dự thi</LocalLink>}</section></div>;
 }
 
 function CandidateAwardsPanel({ resource }) {
@@ -487,7 +490,7 @@ function CandidateAwardsPanel({ resource }) {
   const awards = asList(resource.data.awards);
   return <section className="candidate-awards" aria-label="Điểm và giải thưởng" data-testid="candidate-awards">
     <h3>Kết quả cá nhân</h3>
-    {!resource.data.individualScorePublished ? <p>Điểm cá nhân chưa được Ban Tổ chức công bố.</p> : score ? <p>Điểm chung <strong>{score.commonScore ?? '—'}</strong> · Điểm chuyên môn <strong>{score.specializedScore ?? '—'}</strong> · Tổng điểm <strong>{score.totalScore ?? '—'}</strong> · Hạng <strong>{score.rank ?? '—'}</strong></p> : <p>Chưa có lượt thi hợp lệ đã nộp để hiển thị điểm.</p>}
+    {!resource.data.individualScorePublished ? <p>Điểm cá nhân chưa được Ban Tổ chức công bố.</p> : score ? <p>Tổng điểm <strong>{score.totalScore ?? '—'}</strong> · Hạng <strong>{score.rank ?? '—'}</strong></p> : <p>Chưa có lượt thi hợp lệ đã nộp để hiển thị điểm.</p>}
     <h3>Danh sách đạt giải</h3>
     {!resource.data.awardsPublished ? <p>Danh sách đạt giải chưa được Ban Tổ chức công bố.</p> : !awards.length ? <p>Danh sách đã được công bố; chưa có thí sinh đạt giải.</p> : <div className="assignment-results-wrap"><table className="assignment-results-table"><thead><tr><th>Giải</th><th>Mã thí sinh</th><th>Họ tên</th><th>Bộ phận</th><th>Nhóm xếp hạng</th><th>Hạng</th></tr></thead><tbody>{awards.map((item, index) => <tr key={`${item.candidateCode}-${item.awardName}-${index}`}><td>{item.awardName}</td><td>{item.candidateCode}</td><td>{item.fullName}</td><td>{item.department || '—'}</td><td>{item.rankingGroupName}</td><td>{item.rank}</td></tr>)}</tbody></table></div>}
   </section>;

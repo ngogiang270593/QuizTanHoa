@@ -35,6 +35,15 @@ public static class QuestionBankSchemaUpgrade
                 ON "QuestionBankQuestions"("IsActive", "Group", "UpdatedAtUtc");
             """);
 
+        var hasTopic = false;
+        await using (var command = db.Database.GetDbConnection().CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = "PRAGMA table_info(\"QuestionBankQuestions\")";
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync()) hasTopic |= reader.GetString(1) == "Topic";
+        }
+        if (!hasTopic) await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"QuestionBankQuestions\" ADD COLUMN \"Topic\" TEXT NOT NULL DEFAULT ''");
         var hasBankQuestionId = false;
         await using (var command = db.Database.GetDbConnection().CreateCommand())
         {

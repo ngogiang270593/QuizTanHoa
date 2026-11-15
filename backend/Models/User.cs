@@ -17,5 +17,11 @@ public class User
     public string Role { get; set; } = "";
     public bool IsActive { get; set; } = true;
     public bool IsDemo { get; set; }
+    public string? PermissionScopeJson { get; set; }
+    public string? ProcessIdsJson { get; set; }
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped] public string[]? ResolvedWorkflowPermissions { get; set; }
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped] public string[] ProcessPermissionKeys { get; set; } = [];
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped] public AssignedProcess[] AssignedProcesses { get; set; } = [];
+    public string? WorkflowPermissionsJson { get; set; }
     public bool MustChangePassword { get; set; }
 }

@@ -1,8 +1,12 @@
+import {useAccess} from './AccessContext.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { api, isConnectionError } from './api.js';
 import './Competitions.css';
 import { CompetitionTabs } from './ExamWorkspace.jsx';
 import { formatVietnamDateTime } from './dateTime.js';
+import TopicQuotaPicker from './TopicQuotaPicker.jsx';
+import QuestionLibraryPicker from './QuestionLibraryPicker.jsx';
+import { questionSelectionSummary, topicSelectionIds } from './questionLibrary.mjs';
 
 const BASE = '/ban-to-chuc/cuoc-thi';
 export const SAMPLE_COMPETITION_NAME = 'Hội thi trực tuyến tìm hiểu kiến thức, nghiệp vụ dành cho cán bộ, công chức xã Tân Hòa';
@@ -30,6 +34,7 @@ function ErrorNotice({ message, retry }) {
 }
 
 function List({ navigate }) {
+  const {can}=useAccess();
   const [state, setState] = useState({ loading: true, competitions: [], error: '' });
   const [attempt, setAttempt] = useState(0);
   const [deleteId, setDeleteId] = useState(null);
@@ -48,7 +53,7 @@ function List({ navigate }) {
   }, [attempt]);
 
   async function removeCompetition(id) {
-    if (deleting) return;
+    if (deleting || !can('draft')) return;
     setDeleting(true); setActionError(''); setNotice('');
     try {
       await api.delete(`/organizer/competitions/${id}`);
@@ -59,16 +64,17 @@ function List({ navigate }) {
   }
 
   return <section className="panel competition-panel">
-    <div className="panel-heading competition-list-heading"><div><h2>Danh sách cuộc thi</h2><p>Chuẩn bị nội dung và thể lệ cho từng cuộc thi.</p></div><button className="button button-primary" onClick={() => navigate(`${BASE}/tao`)}><span aria-hidden="true">＋</span> Tạo cuộc thi</button></div>
+    <div className="panel-heading competition-list-heading"><div><h2>Danh sách cuộc thi</h2><p>Chuẩn bị nội dung và thể lệ cho từng cuộc thi.</p></div><button className="button button-primary" disabled={!can('draft')} onClick={() => navigate(`${BASE}/tao`)}><span aria-hidden="true">＋</span> Tạo cuộc thi</button></div>
     {actionError && <ErrorNotice message={actionError} />}{notice && <div className="notice competition-success" role="status">{notice}</div>}
     {state.loading ? <Loading /> : state.error ? <ErrorNotice message={state.error} retry={() => setAttempt((value) => value + 1)} /> : state.competitions.length === 0 ? <div className="competition-empty"><span className="competition-empty-icon"><ContestIcon /></span><h3>Chưa có cuộc thi</h3><p>Tạo cuộc thi đầu tiên để chuẩn bị tên, mô tả và thể lệ. Cuộc thi mới được lưu ở trạng thái Nháp.</p><button className="button button-secondary" onClick={() => navigate(`${BASE}/tao`)}>Tạo cuộc thi đầu tiên</button></div> : <div className="competition-list" data-testid="competition-list">{state.competitions.map((competition) => <article key={competition.id} className="competition-row">
-      <div className="competition-row-icon"><ContestIcon /></div><div className="competition-row-body"><div className="competition-row-badges"><StatusBadge status={competition.status} />{competition.isDemo && <span className="demo-label">Dữ liệu minh họa</span>}</div><h3><a href={`${BASE}/${competition.id}/chinh-sua`} onClick={(event) => { if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate(`${BASE}/${competition.id}/chinh-sua`); }}>{competition.name}</a></h3><div className="competition-row-actions"><a className="button button-secondary" href={`${BASE}/${competition.id}/de-thi`} onClick={(event) => { if(event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate(`${BASE}/${competition.id}/de-thi`); }}>Đề thi</a><a className="button button-secondary" href={`${BASE}/${competition.id}/lich-thi`} onClick={(event) => { if(event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate(`${BASE}/${competition.id}/lich-thi`); }}>Lịch thi</a></div><p>{competition.description || 'Chưa có mô tả.'}</p><small>Cập nhật: {formatDate(competition.updatedAtUtc)}</small></div><div className="competition-edit-actions"><button className="button button-secondary competition-edit-button" onClick={() => navigate(`${BASE}/${competition.id}/chinh-sua`)} aria-label={`Chỉnh sửa cuộc thi ${competition.name}`}>Chỉnh sửa</button>{competition.status === 'Draft' && (deleteId === competition.id ? <div className="exam-actions"><span>Xóa bản nháp này?</span><button className="text-button exam-danger" disabled={deleting} onClick={() => removeCompetition(competition.id)}>{deleting ? 'Đang xóa...' : 'Xác nhận xóa'}</button><button className="text-button" disabled={deleting} onClick={() => setDeleteId(null)}>Hủy</button></div> : <button className="button button-secondary exam-danger" disabled={deleting} onClick={() => { setDeleteId(competition.id); setActionError(''); }}>Xóa nháp</button>)}</div>
+      <div className="competition-row-icon"><ContestIcon /></div><div className="competition-row-body"><div className="competition-row-badges"><StatusBadge status={competition.status} />{competition.isDemo && <span className="demo-label">Dữ liệu minh họa</span>}</div><h3><a href={`${BASE}/${competition.id}/chinh-sua`} onClick={(event) => { if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate(`${BASE}/${competition.id}/chinh-sua`); }}>{competition.name}</a></h3><div className="competition-row-actions"><a className="button button-secondary" href={`${BASE}/${competition.id}/de-thi`} onClick={(event) => { if(event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate(`${BASE}/${competition.id}/de-thi`); }}>Đề thi</a>{can('operate') && <a className="button button-secondary" href={`${BASE}/${competition.id}/lich-thi`} onClick={(event) => { if(event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate(`${BASE}/${competition.id}/lich-thi`); }}>Lịch thi</a>}</div><p>{competition.description || 'Chưa có mô tả.'}</p><small>Cập nhật: {formatDate(competition.updatedAtUtc)}</small></div><div className="competition-edit-actions"><button disabled={!can('draft')} className="button button-secondary competition-edit-button" onClick={() => navigate(`${BASE}/${competition.id}/chinh-sua`)} aria-label={`Chỉnh sửa cuộc thi ${competition.name}`}>Chỉnh sửa</button>{competition.status === 'Draft' && (deleteId === competition.id ? <div className="exam-actions"><span>Xóa bản nháp này?</span><button className="text-button exam-danger" disabled={!can('draft') || deleting} onClick={() => removeCompetition(competition.id)}>{deleting ? 'Đang xóa...' : 'Xác nhận xóa'}</button><button className="text-button" disabled={!can('draft') || deleting} onClick={() => setDeleteId(null)}>Hủy</button></div> : <button className="button button-secondary exam-danger" disabled={!can('draft') || deleting} onClick={() => { setDeleteId(competition.id); setActionError(''); }}>Xóa nháp</button>)}</div>
     </article>)}</div>}
     <div className="competition-list-footer"><span>Trạng thái: Nháp · Đã công bố · Đã kết thúc</span><span>Lịch thi theo giờ Việt Nam (UTC+7).</span></div>
   </section>;
 }
 
 function Form({ competitionId, navigate, onSaved, isDemoUser }) {
+  const {can}=useAccess();
   const editing = Boolean(competitionId);
   const [fields, setFields] = useState({ name: '', description: '', rules: '' });
   const [record, setRecord] = useState(null);
@@ -80,6 +86,14 @@ function Form({ competitionId, navigate, onSaved, isDemoUser }) {
   const [saveError, setSaveError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const saveInProgress = useRef(false);
+  const [selectionMode, setSelectionMode] = useState('topics');
+  const [topicQuotas, setTopicQuotas] = useState([]);
+  const [topicsValid, setTopicsValid] = useState(false);
+  const [initialQuestions, setInitialQuestions] = useState([]);
+  const [showPicker, setShowPicker] = useState(false);
+  const [initialExamName, setInitialExamName] = useState('Đề thi chính');
+  const [initialDuration, setInitialDuration] = useState(30);
+  const summary = questionSelectionSummary(initialQuestions);
   const request = useRef(null);
   const nameInput = useRef(null);
 
@@ -114,17 +128,21 @@ function Form({ competitionId, navigate, onSaved, isDemoUser }) {
       nameInput.current?.focus();
       return;
     }
+    if (!editing && selectionMode === 'topics' && topicQuotas.length && !topicsValid) { setSaveError('Đề cần từ 1 đến 400 câu. Vui lòng rà soát danh sách câu hỏi theo chủ đề.'); return; }
+    if (!editing && (initialQuestions.length || topicQuotas.length) && (!Number.isInteger(Number(initialDuration)) || initialDuration < 1 || initialDuration > 480)) { setSaveError('Thời lượng phải từ 1 đến 480 phút.'); return; }
     saveInProgress.current = true; setSaving(true); setSaveError(''); setFieldErrors({});
     const controller = new AbortController(); request.current = controller;
     try {
       const body = { name: fields.name.trim(), description: fields.description, rules: fields.rules };
+      if (!editing && selectionMode === 'topics' && topicQuotas.length) body.initialExam = { name: initialExamName.trim() || 'Đề thi chính', durationMinutes: Number(initialDuration), questionIds: topicSelectionIds(topicQuotas) };
+      if (!editing && selectionMode === 'manual' && initialQuestions.length) body.initialExam = { name: initialExamName.trim() || 'Đề thi chính', durationMinutes: Number(initialDuration), questionIds: initialQuestions.map(q => q.id) };
       const { data } = editing
         ? await api.put(`/organizer/competitions/${competitionId}`, body, { signal: controller.signal })
         : await api.post('/organizer/competitions', body, { signal: controller.signal });
       if (controller.signal.aborted) return;
       setRecord(data); setFields({ name: data.name || '', description: data.description || '', rules: data.rules || '' });
       onSaved(editing ? 'Đã lưu thay đổi.' : 'Đã tạo cuộc thi ở trạng thái Nháp.');
-      if (!editing) navigate(`${BASE}/${data.id}/chinh-sua`, true);
+      if (!editing) navigate(data.initialExamId ? `${BASE}/${data.id}/de-thi/${data.initialExamId}` : `${BASE}/${data.id}/chinh-sua`, true);
     } catch (error) {
       if (controller.signal.aborted) return;
       const errors = error.response?.data?.errors;
@@ -148,13 +166,15 @@ function Form({ competitionId, navigate, onSaved, isDemoUser }) {
 
   return <div className="competition-form-layout"><section className="panel competition-form-panel"><div className="competition-form-heading"><div><h2>{editing ? 'Thông tin cuộc thi' : 'Chuẩn bị cuộc thi mới'}</h2><p>{editing ? 'Chỉnh sửa nội dung và lưu để cập nhật cuộc thi.' : 'Nhập thông tin cơ bản. Cuộc thi chỉ được tạo khi bạn lưu biểu mẫu.'}</p></div><StatusBadge status={record?.status || 'Draft'} /></div>
     {(record?.isDemo || (!editing && isDemoUser)) && <div className="competition-demo-note"><strong>Dữ liệu minh họa.</strong> Cuộc thi này được tạo bằng tài khoản minh họa.</div>}
-    <form className="competition-form" onSubmit={save} noValidate aria-busy={saving}>
+    <fieldset className="permission-readonly" disabled={!can('draft')}><form className="competition-form" onSubmit={save} noValidate aria-busy={saving}>
       {saveError && <ErrorNotice message={saveError} />}
       <div className="field"><div className="competition-label-row"><label htmlFor="competition-name">Tên cuộc thi <span aria-hidden="true" className="required-mark">*</span></label>{!editing && <button type="button" className="text-button" disabled={saving} onClick={() => { changeField('name', SAMPLE_COMPETITION_NAME); nameInput.current?.focus(); }}>Dùng tên mẫu</button>}</div><input ref={nameInput} id="competition-name" name="name" type="text" required maxLength={300} value={fields.name} disabled={saving} onChange={(event) => changeField('name', event.target.value)} aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? 'competition-name-error' : 'competition-name-help'} placeholder="Nhập tên cuộc thi" />{fieldErrors.name ? <p className="competition-field-error" id="competition-name-error" role="alert">{fieldErrors.name}</p> : <p className="competition-field-help" id="competition-name-help">Bắt buộc. Tối đa 300 ký tự.</p>}</div>
       <div className="field"><label htmlFor="competition-description">Mô tả</label><textarea id="competition-description" name="description" rows={4} maxLength={5000} value={fields.description} disabled={saving} onChange={(event) => changeField('description', event.target.value)} aria-invalid={Boolean(fieldErrors.description)} aria-describedby={fieldErrors.description ? 'competition-description-error' : undefined} placeholder="Giới thiệu mục đích, nội dung và đối tượng của cuộc thi" />{fieldErrors.description && <p className="competition-field-error" id="competition-description-error" role="alert">{fieldErrors.description}</p>}</div>
       <div className="field"><label htmlFor="competition-rules">Thể lệ</label><textarea id="competition-rules" name="rules" rows={8} maxLength={20000} value={fields.rules} disabled={saving} onChange={(event) => changeField('rules', event.target.value)} aria-invalid={Boolean(fieldErrors.rules)} aria-describedby={fieldErrors.rules ? 'competition-rules-error' : undefined} placeholder="Nhập thể lệ, yêu cầu và các lưu ý cho thí sinh" />{fieldErrors.rules && <p className="competition-field-error" id="competition-rules-error" role="alert">{fieldErrors.rules}</p>}</div>
+      {!editing && <section className="competition-question-setup"><div className="cqs-heading"><div><h3>Câu hỏi cho cuộc thi</h3><p>Chọn chủ đề để lấy toàn bộ câu hỏi, sau đó bỏ chọn những câu không dùng.</p></div><button type="button" className="button button-secondary" disabled={saving} onClick={() => { setSelectionMode('manual'); setShowPicker(true); }}>Chọn nhiều câu hỏi</button></div><div className="exam-actions"><button type="button" className="button button-secondary" aria-pressed={selectionMode === 'topics'} disabled={saving} onClick={() => setSelectionMode('topics')}>Theo chủ đề</button><button type="button" className="button button-secondary" aria-pressed={selectionMode === 'manual'} disabled={saving} onClick={() => setSelectionMode('manual')}>Tự chọn câu hỏi</button></div>{selectionMode === 'topics' && <><TopicQuotaPicker value={topicQuotas} onChange={setTopicQuotas} disabled={saving} onValidity={setTopicsValid} /><div className="cqs-exam-fields"><label>Tên đề thi<input value={initialExamName} maxLength={300} disabled={saving} onChange={e => setInitialExamName(e.target.value)} /></label><label>Thời lượng (phút)<input type="number" min="1" max="480" value={initialDuration} disabled={saving} onChange={e => setInitialDuration(e.target.value)} /></label></div></>}{selectionMode === 'manual' && (initialQuestions.length ? <><div className="cqs-summary"><strong>{summary.count} câu đã chọn</strong><span>{summary.totalPoints} điểm</span></div><div className="cqs-exam-fields"><label>Tên đề thi<input value={initialExamName} maxLength={300} disabled={saving} onChange={e => setInitialExamName(e.target.value)} /></label><label>Thời lượng (phút)<input type="number" min="1" max="480" value={initialDuration} disabled={saving} onChange={e => setInitialDuration(e.target.value)} /></label></div><ol className="cqs-selected">{initialQuestions.map((q, i) => <li key={q.id}><span>{i + 1}. {q.content}</span><button type="button" className="text-button" disabled={saving} aria-label={`Bỏ câu ${i + 1}`} onClick={() => setInitialQuestions(rows => rows.filter(row => row.id !== q.id))}>Bỏ</button></li>)}</ol></> : <p className="cqs-empty">Chưa chọn câu hỏi. Bạn có thể chọn ngay hoặc bổ sung sau trong mục Đề thi.</p>)}</section>}
+      {showPicker && <QuestionLibraryPicker initialSelectedIds={initialQuestions.map(q => q.id)} onConfirm={rows => { setInitialQuestions(rows); setShowPicker(false); }} onCancel={() => setShowPicker(false)} />}
       <div className="competition-form-actions"><button type="submit" className="button button-primary" disabled={saving}>{saving ? <><span className="loading-spinner" aria-hidden="true" /> Đang lưu...</> : editing ? 'Lưu thay đổi' : 'Lưu cuộc thi'}</button><button type="button" className="button button-secondary" disabled={saving} onClick={() => navigate(BASE)}>Về danh sách</button></div>
-    </form></section><aside className="competition-help-panel"><span className="eyebrow">TRẠNG THÁI CUỘC THI</span><h3>Chuẩn bị từ bản nháp</h3><p>Cuộc thi mới ở trạng thái <strong>Nháp</strong> và chưa hiển thị cho thí sinh.</p><ol><li><strong>Nháp</strong><span>Soạn tên, mô tả và thể lệ.</span></li><li><strong>Đã công bố</strong><span>Chỉ thí sinh được phân tham gia mới nhìn thấy.</span></li><li><strong>Đã kết thúc</strong><span>Cuộc thi đã hoàn tất.</span></li></ol><div className="competition-schedule-note"><strong>Lịch thi theo giờ Việt Nam</strong><p>Lịch mở và đóng thi sẽ quyết định thời điểm được bắt đầu làm bài. Cấu hình các mốc tại mục Lịch thi; thời lượng làm bài đặt ở mỗi đề.</p><code>Asia/Ho_Chi_Minh</code></div></aside></div>;
+    </form></fieldset></section><aside className="competition-help-panel"><span className="eyebrow">TRẠNG THÁI CUỘC THI</span><h3>Chuẩn bị từ bản nháp</h3><p>Cuộc thi mới ở trạng thái <strong>Nháp</strong> và chưa hiển thị cho thí sinh.</p><ol><li><strong>Nháp</strong><span>Soạn tên, mô tả và thể lệ.</span></li><li><strong>Đã công bố</strong><span>Chỉ thí sinh được phân tham gia mới nhìn thấy.</span></li><li><strong>Đã kết thúc</strong><span>Cuộc thi đã hoàn tất.</span></li></ol><div className="competition-schedule-note"><strong>Lịch thi theo giờ Việt Nam</strong><p>Lịch mở và đóng thi sẽ quyết định thời điểm được bắt đầu làm bài. Cấu hình các mốc tại mục Lịch thi; thời lượng làm bài đặt ở mỗi đề.</p><code>Asia/Ho_Chi_Minh</code></div></aside></div>;
 }
 
 export function CompetitionsPage({ path, navigate, user }) {

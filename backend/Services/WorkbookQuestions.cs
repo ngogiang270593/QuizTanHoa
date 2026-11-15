@@ -21,11 +21,12 @@ public static class WorkbookQuestions
             if (QuestionWorkbook.Headers.Concat(QuestionWorkbook.OptionalHeaders).All(header => string.IsNullOrWhiteSpace(CellOptional(header))) && row.Errors.Count == 0) continue;
             var errors = row.Errors.ToList();
             var type = QuestionWorkbook.Normalize(Cell("Loại câu"));
-            var group = QuestionWorkbook.Normalize(Cell("Nhóm câu"));
+            var group = QuestionWorkbook.Normalize(Cell("Chủ đề"));
             var question = new QuestionWriteRequest
             {
                 Type = type switch { "motdapandung" or "singlechoice" => "SingleChoice", "dungsai" or "truefalse" => "TrueFalse", _ => "" },
-                Group = group switch { "kienthucchung" or "common" => "Common", "chuyenmon" or "specialized" => "Specialized", _ => "" },
+                Topic = group is "kienthucchung" or "common" or "chuyenmon" or "specialized" ? "" : Cell("Chủ đề"),
+                Group = group switch { "kienthucchung" or "common" => "Common", "chuyenmon" or "specialized" => "Specialized", _ => "Common" },
                 Content = Cell("Nội dung"),
                 Explanation = Cell("Giải thích"),
                 Source = Cell("Nguồn đối chiếu"),

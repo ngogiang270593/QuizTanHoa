@@ -83,12 +83,15 @@ public static class DatabaseBootstrap
                 """);
             await db.Database.ExecuteSqlInterpolatedAsync($"INSERT OR IGNORE INTO \"SchemaVersions\" (\"Version\", \"AppliedAtUtc\") VALUES (2, {DateTime.UtcNow})");
             await ExamSchemaUpgrade.ApplyAsync(db, transaction.GetDbTransaction());
+            await WorkflowSchemaUpgrade.ApplyAsync(db, transaction.GetDbTransaction());
+            await ProcessSchemaUpgrade.ApplyAsync(db, transaction.GetDbTransaction());
             await AssignmentSchemaUpgrade.ApplyAsync(db, transaction.GetDbTransaction());
             await AttemptSchemaUpgrade.ApplyAsync(db, transaction.GetDbTransaction());
             await AttemptSessionSchemaUpgrade.ApplyAsync(db, transaction.GetDbTransaction());
             await CompetitionAwardsSchemaUpgrade.ApplyAsync(db, transaction.GetDbTransaction());
             await OrganizationUnitSchemaUpgrade.ApplyAsync(db, transaction.GetDbTransaction());
             await QuestionBankSchemaUpgrade.ApplyAsync(db, transaction.GetDbTransaction());
+            await TopicSchemaUpgrade.ApplyAsync(db, transaction.GetDbTransaction());
             await CompetitionDeletionSchemaUpgrade.ApplyAsync(db, transaction.GetDbTransaction());
             await transaction.CommitAsync();
         }
@@ -135,6 +138,7 @@ public static class DatabaseBootstrap
                 throw new InvalidOperationException("QUIZ_TANHOA_INITIAL_PASSWORD phải được cung cấp và không vượt quá 72 byte.");
             await InitialOrganizationSeeder.SeedAsync(db, temporaryPassword);
         }
+        await ProcessAccess.MigrateAsync(db);
     }
 
     private static async Task AddDemoUserAsync(AppDbContext db, string username, string fullName, string role)

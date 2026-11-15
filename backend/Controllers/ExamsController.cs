@@ -16,7 +16,7 @@ namespace Quiz_TanHoa.Api.Controllers;
 [Authorize(Policy = AppRoles.Organizer)]
 public sealed class ExamsController(AppDbContext db) : ControllerBase
 {
-    private IQueryable<Exam> InCompetition(int competitionId) => db.Exams.Include(exam => exam.FieldGroup).Include(exam => exam.Questions).Where(exam => exam.CompetitionId == competitionId);
+    private IQueryable<Exam> InCompetition(int competitionId) => db.Exams.Include(exam => exam.Competition).Include(exam => exam.FieldGroup).Include(exam => exam.Questions).Where(exam => exam.CompetitionId == competitionId);
     private async Task<ApprovedExamVersion?> Approved(Exam exam) => exam.CurrentApprovedVersionId.HasValue ? await db.ApprovedExamVersions.AsNoTracking().SingleOrDefaultAsync(version => version.Id == exam.CurrentApprovedVersionId && version.ExamId == exam.Id) : null;
 
     [HttpGet]
@@ -70,7 +70,6 @@ public sealed class ExamsController(AppDbContext db) : ControllerBase
     private async Task<bool> ValidateRequest(int competitionId, ExamWriteRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name)) ModelState.AddModelError("name", "Vui lòng nhập tên đề thi.");
-        if (request.CommonQuestionCount + request.SpecializedQuestionCount != request.TargetQuestionCount) ModelState.AddModelError("targetQuestionCount", "Số câu chung cộng chuyên môn phải bằng tổng số câu.");
         if (!await db.ExamFieldGroups.AnyAsync(group => group.Id == request.FieldGroupId && group.CompetitionId == competitionId)) ModelState.AddModelError("fieldGroupId", "Nhóm lĩnh vực không thuộc cuộc thi này.");
         return ModelState.IsValid;
     }
@@ -85,7 +84,7 @@ public sealed class ExamsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost("{examId:int}/approve")]
-    public async Task<IActionResult> Approve(int competitionId, int examId)
+    public async Task<IActionResult> Approve(int competitionId, int examId, [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] ReviewRequest? request = null)
     {
         await using var transaction = await db.Database.BeginTransactionAsync();
         var exam = await InCompetition(competitionId).SingleOrDefaultAsync(exam => exam.Id == examId);
@@ -94,6 +93,10 @@ public sealed class ExamsController(AppDbContext db) : ControllerBase
         if (errors.Count > 0) return BadRequest(new { message = "Chưa thể duyệt đề. Vui lòng sửa các lỗi được chỉ rõ.", canApprove = false, errors });
         var existing = await db.ApprovedExamVersions.AsNoTracking().SingleOrDefaultAsync(version => version.ExamId == exam.Id && version.DraftRevision == exam.DraftRevision);
         if (existing is not null) return Ok(ExamResponse.Version(existing));
+        if (exam.ReviewStatus != "PendingReview" || exam.SubmittedRevision != exam.DraftRevision) return Conflict(new { message = "Đề phải được gửi chờ duyệt trước khi duyệt." });
+        if (exam.SubmittedByUserId == CurrentAccount.User(HttpContext).Id && !WorkflowAccess.Has(CurrentAccount.User(HttpContext), "manageUsers")) return StatusCode(403, new { message = "Người gửi không được tự duyệt đề của mình." });
+        if (string.IsNullOrWhiteSpace(request?.Note)) return BadRequest(new { message = "Vui lòng nhập ghi chú duyệt." });
+        var note = request.Note.Trim();
         var now = DateTime.UtcNow;
         var snapshot = new
         {
@@ -111,7 +114,8 @@ public sealed class ExamsController(AppDbContext db) : ControllerBase
             ApprovedAtUtc = now, ApprovedByUserId = CurrentAccount.User(HttpContext).Id
         };
         db.ApprovedExamVersions.Add(version); await db.SaveChangesAsync();
-        exam.CurrentApprovedVersionId = version.Id; await db.SaveChangesAsync();
+        exam.CurrentApprovedVersionId = version.Id; exam.ReviewStatus = "Approved"; exam.ReviewNote = note;
+        ExamReviewController.AddEvent(db, exam, CurrentAccount.User(HttpContext), "Approved", note); await db.SaveChangesAsync();
         await transaction.CommitAsync();
         return Ok(ExamResponse.Version(version));
     }

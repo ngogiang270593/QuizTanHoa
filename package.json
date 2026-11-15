@@ -5,6 +5,11 @@
   "description": "Hội thi nghiệp vụ cán bộ, công chức xã Tân Hòa",
   "main": "main.js",
   "scripts": {
+    "build:cloud": "node scripts/build-cloud.cjs",
+    "test:cloud": "npm --prefix cloud test",
+    "test:question-editor": "node --test frontend/tests/questionDraft.test.mjs",
+    "deploy:cloud": "npm run build:cloud && npx --yes wrangler@4.162.0 pages deploy frontend/dist-web --project-name quiztanhoa --branch main --commit-dirty=true",
+    "deploy:cloud:preview": "npm run build:cloud && npx --yes wrangler@4.162.0 pages deploy frontend/dist-web --project-name quiztanhoa --branch verify --commit-dirty=true",
     "setup": "npm --prefix frontend ci && dotnet restore backend/Quiz_TanHoa.Api.csproj",
     "dev": "node scripts/dev.cjs",
     "dev:demo": "node scripts/dev.cjs --demo",
@@ -22,7 +27,8 @@
     "test:results": "node scripts/test-results.cjs",
     "test:development": "dotnet build backend/Quiz_TanHoa.Api.csproj -c Debug --artifacts-path .artifacts/development && node scripts/test-development.cjs",
     "test:browser": "node scripts/test-browser.cjs",
-    "test": "dotnet build backend/Quiz_TanHoa.Api.csproj -c Release && npm run test:auth && npm run test:competitions && npm run test:exams && npm run test:assignments && npm run test:results && npm --prefix frontend run build:web && npm run test:development && npm run test:browser"
+    "test": "dotnet build backend/Quiz_TanHoa.Api.csproj -c Release && npm run test:auth && npm run test:competitions && npm run test:exams && npm run test:assignments && npm run test:results && npm --prefix frontend run build:web && npm run test:development && npm run test:browser",
+    "test:topics": "dotnet build backend/Quiz_TanHoa.Api.csproj -c Release --artifacts-path .artifacts/topics && node scripts/test-topics.cjs"
   },
   "devDependencies": {
     "electron": "^37.2.0",
@@ -31,12 +37,25 @@
   "build": {
     "appId": "com.quiztanhoa.desktop",
     "productName": "Quiz_TanHoa",
-    "directories": { "output": "release" },
-    "files": ["main.js", "package.json"],
-    "extraResources": [
-      { "from": "publish/backend", "to": "backend" },
-      { "from": "frontend/dist", "to": "web" }
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "package.json"
     ],
-    "win": { "target": "nsis" }
+    "extraResources": [
+      {
+        "from": "publish/backend",
+        "to": "backend"
+      },
+      {
+        "from": "frontend/dist",
+        "to": "web"
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    }
   }
 }
