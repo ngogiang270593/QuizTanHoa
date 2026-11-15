@@ -1,0 +1,2 @@
+const fs=require('node:fs');let file='worker/organizer.mjs',s=fs.readFileSync(file,'utf8');s=s.replace("await db.all('accessEvents','userId',id)).sort", "await db.all('accessEvents','userId',id)).filter(e=>e.action==='AccessChanged').sort");fs.writeFileSync(file,s);
+file='scripts/test-account-render.mjs';s=fs.readFileSync(file,'utf8').replace("define:{'import.meta.env':'{}'}", "define:{'import.meta.env':'{}','__API_BASE_URL__':JSON.stringify('/api')}");fs.writeFileSync(file,s);

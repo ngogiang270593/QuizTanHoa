@@ -1,0 +1,13 @@
+const fs=require('node:fs');function edit(file,old,next){let s=fs.readFileSync(file,'utf8');if(!s.includes(old))throw Error(file+': '+old);fs.writeFileSync(file,s.split(old).join(next));}
+edit('frontend/tests/processes.test.mjs','two business workflows','three account workflows');
+edit('frontend/tests/processes.test.mjs',"PROCESS_DEFAULTS.length,2);assert.deepEqual(PROCESS_DEFAULTS.map(p=>p.name),['Ban tổ chức','Người dùng']","PROCESS_DEFAULTS.length,3);assert.deepEqual(PROCESS_DEFAULTS.map(p=>p.name),['Quản trị hệ thống','Biên tập – Duyệt','Thi']");
+edit('worker/tests/api.test.mjs','two default processes preserve','three default processes preserve');
+edit('worker/tests/api.test.mjs',"catalog.length,2);assert.deepEqual(catalog.map(p=>p.name),['Ban tổ chức','Người dùng']","catalog.length,3);assert.deepEqual(catalog.map(p=>p.name),['Quản trị hệ thống','Biên tập – Duyệt','Thi']");
+edit('worker/tests/api.test.mjs',"const organizer=catalog.find(p=>p.role==='Organizer'),candidate=catalog.find(p=>p.role==='Candidate');","const organizer=catalog.find(p=>p.code==='ORGANIZER'),system=catalog.find(p=>p.code==='SYSTEM_ADMIN'),candidate=catalog.find(p=>p.role==='Candidate');");
+edit('worker/tests/api.test.mjs',"`/organizer/processes/${organizer.id}`,{name:organizer.name,role:'Organizer',steps:['draft','submit','approve','operate']}","`/organizer/processes/${system.id}`,{name:system.name,role:'Organizer',steps:['draft','submit','approve','operate']}");
+edit('worker/tests/api.test.mjs',"catalog=await ok('GET','/organizer/processes');assert.equal(catalog.length,2);","catalog=await ok('GET','/organizer/processes');assert.equal(catalog.length,3);");
+edit('scripts/test-topics.cjs',"assert.equal(processes.length,2);assert.deepEqual(processes.map(p=>p.role),['Organizer','Candidate']);","assert.equal(processes.length,3);assert.deepEqual(processes.map(p=>p.role),['Organizer','Organizer','Candidate']);");
+edit('scripts/test-topics.cjs','PASS two default processes','PASS three default processes');
+edit('scripts/test-processes-live.mjs',"assert.equal(catalog.length,2);assert.ok(catalog.some(p=>p.name==='Ban tổ chức'));assert.equal(candidate.name,'Người dùng');","assert.equal(catalog.length,3);assert.ok(catalog.some(p=>p.name==='Biên tập – Duyệt'));assert.equal(candidate.name,'Thi');");
+edit('scripts/test-processes-live.mjs','defaultProcesses:2','defaultProcesses:3');
+edit('scripts/check-processes-production.mjs',"processes.length,2);assert.deepEqual(processes.map(p=>p.name),['Ban tổ chức','Người dùng']","processes.length,3);assert.deepEqual(processes.map(p=>p.name).sort(),['Quản trị hệ thống','Biên tập – Duyệt','Thi'].sort()");

@@ -1,0 +1,21 @@
+const fs=require('node:fs');
+function edit(file,old,next){const s=fs.readFileSync(file,'utf8');if(!s.includes(old))throw Error(file+': '+old);fs.writeFileSync(file,s.split(old).join(next));}
+edit('worker/common.mjs','mustChangePassword:false,workflowPermissions:','mustChangePassword:false,accountGroup:accountGroup(user),workflowPermissions:');
+edit('scripts/migrate-processes.mjs',"['ORGANIZER','CANDIDATE']","['SYSTEM_ADMIN','ORGANIZER','CANDIDATE']");
+edit('scripts/migrate-processes.mjs','.version,2)','.version,3)');
+edit('frontend/src/App.jsx',"const homeFor = (user) => user.role === 'Organizer' ? '/ban-to-chuc' : '/thi-sinh';",'const homeFor = accountHome;');
+edit('frontend/src/App.jsx','import UserAccessEditor',"import {accountGroup,accountHome,accountMenu,canOpenAccountPath,GROUP_LABELS} from '../../shared/accountGroups.mjs';\nimport SystemAdminWorkspace from './SystemAdminWorkspace.jsx';\nimport UserAccessEditor");
+let file='frontend/src/App.jsx',s=fs.readFileSync(file,'utf8'),start=s.indexOf('      <nav aria-label='),end=s.indexOf('</nav>',start)+6;
+s=s.slice(0,start)+'      <nav aria-label="Điều hướng chính">{accountMenu(user).map(row=><NavItem key={row.path} icon={row.icon} to={row.path} path={path} navigate={navigate}>{row.label}</NavItem>)}</nav>'+s.slice(end);fs.writeFileSync(file,s);
+edit(file,'const pageTitle = workflowTitles[path] ||',"const pageTitle = (path==='/quan-tri'?'Tổng quan hệ thống':path==='/quan-tri/nhat-ky'?'Nhật ký hoạt động':null) || workflowTitles[path] ||");
+edit(file,"KHÔNG GIAN {organizer ? 'TỔ CHỨC' : 'DỰ THI'}",'{GROUP_LABELS[accountGroup(user)]}');
+edit(file,"Không gian {organizer ? 'tổ chức' : 'dự thi'}",'{GROUP_LABELS[accountGroup(user)]}');
+edit(file,'{user.accessLabel || ROLE_NAMES[user.role]}','{GROUP_LABELS[accountGroup(user)]}');
+s=fs.readFileSync(file,'utf8');start=s.indexOf('  let forbidden =');end=s.indexOf('\n  const isDashboard',start);s=s.slice(0,start)+'  let forbidden = Boolean(user && !canOpenAccountPath(user,path));'+s.slice(end);
+start=s.indexOf('      const permitted =');end=s.indexOf('\n      navigate(',start);s=s.slice(0,start)+'      const permitted = canOpenAccountPath(authenticatedUser,wanted);'+s.slice(end);
+s=s.replace("path === '/tai-khoan' ? <Profile","path.startsWith('/quan-tri') ? <SystemAdminWorkspace path={path} navigate={navigate}/> : path === '/tai-khoan' ? <Profile");fs.writeFileSync(file,s);
+edit(file,'type="submit" disabled={busy}>{busy ?', 'type="submit" disabled={busy||!createFields.processIds?.length}>{busy ?');
+edit('frontend/src/TopicCatalog.jsx',"!can('draft')","!(can('draft')||can('manageUsers'))");
+edit('frontend/src/ProcessCatalog.jsx','Hai quy trình mặc định: Ban tổ chức và Người dùng.','Ba quy trình mặc định: Quản trị hệ thống, Biên tập – Duyệt và Thi.');
+edit('frontend/src/ProcessCatalog.jsx','processStages(row.role)',"(row.steps.every(s=>s==='manageUsers')?['Tài khoản','Danh mục','Nhật ký']:processStages(row.role))");
+edit('frontend/src/ProcessCatalog.jsx','processStages(fields.role)',"(fields.steps.length&&fields.steps.every(s=>s==='manageUsers')?['Tài khoản','Danh mục','Nhật ký']:processStages(fields.role))");
