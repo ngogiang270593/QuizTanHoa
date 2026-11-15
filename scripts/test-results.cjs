@@ -10,7 +10,7 @@ const { inflateRawSync } = require('node:zlib');
 
 const root = path.resolve(__dirname, '..');
 const backendRoot = path.join(root, 'backend');
-const dll = path.join(backendRoot, 'bin', 'Release', 'net8.0', 'Quiz_TanHoa.Api.dll');
+const dll = process.env.QUIZ_TANHOA_TEST_DLL || path.join(backendRoot, 'bin', 'Release', 'net8.0', 'Quiz_TanHoa.Api.dll');
 const testsRoot = path.join(root, '.tmp-tests');
 const password = 'ResultsIntegration_Test_2026!';
 const demoPassword = 'TanHoa@2026!';
@@ -100,7 +100,9 @@ async function approvedExam(token, competitionId, fieldGroupId, name) {
       correctAnswer: 'A', explanation: '', source: '', requiresSourceReview: false, sourceReviewed: false,
     } }));
   }
-  const version = await api(`${base}/exams/${exam.id}/approve`, token, { method: 'POST' });
+  await api(`${base}/exams/${exam.id}/submit-review`, token, { method: 'POST', body:{} });
+
+  const version = await api(`${base}/exams/${exam.id}/approve`, token, { method: 'POST', body:{note:'Duyệt đề sau khi kiểm tra'} });
   return { exam, version, questions };
 }
 
@@ -182,7 +184,9 @@ async function main() {
   await api(`${base}/exams/${firstExam.exam.id}/questions/${draftQuestion.id}`, organizer.token, { method: 'PUT', body: {
     ...draftQuestion, isScenario: false,
   } });
-  const changedVersion = await api(`${base}/exams/${firstExam.exam.id}/approve`, organizer.token, { method: 'POST' });
+  await api(`${base}/exams/${firstExam.exam.id}/submit-review`, organizer.token, { method: 'POST', body:{} });
+
+  const changedVersion = await api(`${base}/exams/${firstExam.exam.id}/approve`, organizer.token, { method: 'POST', body:{note:'Duyệt đề sau khi kiểm tra'} });
   assert.notEqual(changedVersion.id, firstExam.version.id);
 
   addAttempts(competition.id, firstExam.exam.id, firstExam.version.id, candidateA, firstExam.questions, ['A', 'A', 'B'], true);

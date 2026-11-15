@@ -257,11 +257,12 @@ async function run() {
     username: 'created.candidate', fullName: 'Trùng tên đăng nhập', department: '',
   } })).status, 409);
   const newCandidate = await login('created.candidate', '123456');
-  assert.equal(newCandidate.mustChangePassword, true);
+  assert.equal(newCandidate.mustChangePassword, false);
+  assert.equal((await request('/api/candidate/overview', { token: newCandidate.token })).status, 200);
   assert.equal((await request(`/api/organizer/users/${createdAccount.id}`, { token: organizer.token, method: 'DELETE' })).status, 204);
   assert.equal((await request('/api/candidate/overview', { token: newCandidate.token })).status, 401);
   assert.equal((await request(`/api/organizer/users/${organizerAccount.id}`, { token: organizer.token, method: 'DELETE' })).status, 409);
-  pass('organizers can create, update and delete candidate accounts; new accounts use a forced-change temporary password and deletion preserves protected roles');
+  pass('organizers can create, update and delete candidate accounts; new accounts can access their workspace directly and deletion preserves protected roles');
   assert.equal((await request('/api/candidate/overview', { token: candidate.token })).status, 200);
   assert.equal((await request('/api/organizer/overview', { token: candidate.token })).status, 403);
   assert.equal((await request('/api/organizer/users', { token: candidate.token })).status, 403);
@@ -334,7 +335,7 @@ async function run() {
     exam: { ...db.prepare('SELECT IsDemo,TargetQuestionCount,CommonQuestionCount,SpecializedQuestionCount,CurrentApprovedVersionId FROM Exams').get() },
   }));
   assert.deepEqual(initialData, {
-    users: 46, candidates: 45, organizers: 1, forcedChange: 46, units: 9, questions: 50, bankQuestions: 50, linkedQuestions: 50,
+    users: 46, candidates: 45, organizers: 1, forcedChange: 0, units: 9, questions: 50, bankQuestions: 50, linkedQuestions: 50,
     schemaVersion: { Version: 9 },
     questionBankSchemaVersion: { Version: 10 },
     exam: { IsDemo: 1, TargetQuestionCount: 50, CommonQuestionCount: 50, SpecializedQuestionCount: 0, CurrentApprovedVersionId: null },
@@ -356,9 +357,9 @@ async function run() {
   assert.equal(inDatabase((db) => db.prepare('SELECT COUNT(*) AS count FROM QuestionBankQuestions WHERE IsActive = 1').get().count), 50);
   pass('legacy demo questions migrate into the bank once and retain links across restarts without duplicating');
   const initialOrganizer = await login('ngochung.pvhxh', '123456');
-  assert.equal(initialOrganizer.mustChangePassword, true);
-  assert.equal((await request('/api/Auth/me', { token: initialOrganizer.token }).then(response => response.json())).mustChangePassword, true);
-  assert.equal((await request('/api/organizer/organization-units', { token: initialOrganizer.token })).status, 403);
+  assert.equal(initialOrganizer.mustChangePassword, false);
+  assert.equal((await request('/api/Auth/me', { token: initialOrganizer.token }).then(response => response.json())).mustChangePassword, false);
+  assert.equal((await request('/api/organizer/organization-units', { token: initialOrganizer.token })).status, 200);
   const rejectedPassword = await request('/api/Auth/change-password', {
     token: initialOrganizer.token,
     body: { currentPassword: '123456', newPassword: 'weakpass', confirmPassword: 'weakpass' },
@@ -380,7 +381,7 @@ async function run() {
   assert.equal(organizationUnits.length, 9);
   assert.equal(organizationUnits[1].name, 'Phòng Văn hóa-Xã hội');
   assert.equal((await request('/api/organizer/users', { token: updatedOrganizer.token }).then(response => response.json())).length, 46);
-  pass('one-time initial organization seed creates 9 units, 46 forced-change accounts and a 50-question draft; strong password change unlocks access and revokes temporary sessions');
+  pass('one-time organization seed creates 9 units, 46 accounts and a 50-question draft; voluntary password changes revoke previous sessions');
   console.log('Authentication and role integration checks passed.');
 }
 

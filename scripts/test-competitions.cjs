@@ -10,7 +10,7 @@ const { DatabaseSync } = require('node:sqlite');
 
 const root = path.resolve(__dirname, '..');
 const backendRoot = path.join(root, 'backend');
-const dll = path.join(backendRoot, 'bin', 'Release', 'net8.0', 'Quiz_TanHoa.Api.dll');
+const dll = process.env.QUIZ_TANHOA_TEST_DLL || path.join(backendRoot, 'bin', 'Release', 'net8.0', 'Quiz_TanHoa.Api.dll');
 const testsRoot = path.join(root, '.tmp-tests');
 const adminPassword = 'QuizCompetition_Test_123!';
 const demoPassword = 'TanHoa@2026!';
@@ -102,7 +102,8 @@ async function createApprovedExam(token, competitionId) {
   assert.equal(response.status, 201);
   const exam = await response.json();
   assert.equal((await request(`${base}/exams/${exam.id}/questions`, { token, body: { type: 'SingleChoice', group: 'Common', content: 'Câu hỏi kỹ thuật minh họa?', options: [{ key: 'A', text: 'A' }, { key: 'B', text: 'B' }], correctAnswer: 'A', points: 1, explanation: '', source: '', requiresSourceReview: false, sourceReviewed: false } })).status, 201);
-  assert.equal((await request(`${base}/exams/${exam.id}/approve`, { token, method: 'POST' })).status, 200);
+  assert.equal((await request(`${base}/exams/${exam.id}/submit-review`, { token, body:{} })).status, 200);
+  assert.equal((await request(`${base}/exams/${exam.id}/approve`, { token, method: 'POST', body:{note:'Duyệt đề sau khi kiểm tra'} })).status, 200);
   return exam;
 }
 

@@ -393,9 +393,7 @@ async function main() {
   await pageWait(`!!document.querySelector('#exam-name') && document.querySelector('#exam-field-group').options.length >= 7`, 'exam configuration form with sample groups');
   assert.equal(await cdp.evaluate(`document.querySelector('#exam-duration').value`), '30');
   assert.equal(await cdp.evaluate(`document.querySelector('#exam-target-count').value`), '30');
-  assert.equal(await cdp.evaluate(`document.querySelector('#exam-common-count').value`), '10');
-  assert.equal(await cdp.evaluate(`document.querySelector('#exam-specialized-count').value`), '20');
-  await setFields([['#exam-name', 'Đề kiến thức chung minh họa'], ['#exam-target-count', '1'], ['#exam-common-count', '1'], ['#exam-specialized-count', '0']]);
+  await setFields([['#exam-name', 'Đề kiến thức chung minh họa'], ['#exam-target-count', '1']]);
   await clickText('Lưu đề thi');
   await pageWait(`location.pathname.startsWith(${JSON.stringify(examsPath + '/')}) && !!document.querySelector('#exam-name') && /Thêm câu hỏi/.test(document.body.innerText)`, 'first exam editor');
   const firstExamPath = await cdp.evaluate('location.pathname');
@@ -411,14 +409,14 @@ async function main() {
   await navigatePage(baseUrl, examsPath);
   await pageWait(`/Đề kiến thức chung minh họa/.test(document.body.innerText) && /Đề kinh tế và hạ tầng minh họa/.test(document.body.innerText)`, 'two exams in the same competition');
   await screenshot('exams-desktop.png');
-  pass('a competition exposes Exam and Schedule tabs, creates two field-specific exams and shows the editable 30/30/10/20 suggested configuration');
+  pass('a competition exposes Exam and Schedule tabs, creates two field-specific exams and shows the editable 30-question/30-minute suggested configuration');
 
   await navigatePage(baseUrl, firstExamPath);
   await pageWait(`!!document.querySelector('#exam-name') && /Thêm câu hỏi/.test(document.body.innerText)`, 'exam question editor');
   await clickText('Thêm câu hỏi');
   await pageWait(`!!document.querySelector('#question-content')`, 'draft question form');
   await setFields([['#question-content', 'Câu hỏi minh họa kiểm tra bản xem trước?'], ['#question-option-A', 'Phương án A minh họa'], ['#question-option-B', 'Phương án B minh họa'], ['#question-option-C', 'Phương án C minh họa'], ['#question-option-D', 'Phương án D minh họa']]);
-  await clickText('Lưu câu hỏi');
+  await clickText('Lưu nháp');
   await pageWait(`!document.querySelector('#question-content') && /Đã lưu câu hỏi/.test(document.body.innerText)`, 'incomplete question stored as draft');
   await clickText('Duyệt đề');
   await pageWait(`!!document.querySelector('#exam-preview') && /Chưa chọn một đáp án đúng hợp lệ|Thiếu đáp án|Chưa chọn đáp án/.test(document.querySelector('#exam-preview').innerText)`, 'approval rejects missing answer with preview diagnostics');
@@ -432,7 +430,7 @@ async function main() {
 
   await clickText('Sửa câu hỏi');
   await pageWait(`!!document.querySelector('#question-answer')`, 'edit question answer');
-  await setFields([['#question-answer', 'A']]);
+  await cdp.evaluate(`document.querySelector('#question-answer-A').click()`);
   await clickText('Lưu câu hỏi');
   await pageWait(`!document.querySelector('#question-content') && /Đã lưu câu hỏi/.test(document.body.innerText)`, 'valid question saved');
   await clickText('Duyệt đề');
@@ -470,14 +468,14 @@ async function main() {
 
   await navigatePage(baseUrl, schedulePath);
   await pageWait(`!!document.querySelector('#schedule-opens')`, 'competition schedule form');
-  await setFields([['#schedule-opens', '10/01/2030 08:00'], ['#schedule-start-deadline', '10/01/2030 08:30'], ['#schedule-closes', '10/01/2030 07:00']]);
+  await setFields([['#schedule-opens', '10/01/2030 08:00:01'], ['#schedule-start-deadline', '10/01/2030 08:30:02'], ['#schedule-closes', '10/01/2030 07:00:00']]);
   await clickText('Lưu lịch thi');
   await pageWait(`/đóng thi.*sau|đóng thi.*sớm|giờ đóng.*sau|giờ đóng.*sớm/i.test(document.body.innerText)`, 'invalid closing time message');
-  await setFields([['#schedule-closes', '10/01/2030 08:40']]);
+  await setFields([['#schedule-closes', '10/01/2030 08:40:03']]);
   await clickText('Lưu lịch thi');
   await pageWait(`/Đã lưu lịch thi/.test(document.body.innerText) && /sát hạn|ít thời gian|chỉ còn/i.test(document.body.innerText)`, 'saved schedule and late-starter warning');
   await reloadPage();
-  await pageWait(`!!document.querySelector('#schedule-opens') && document.querySelector('#schedule-opens').value === '10/01/2030 08:00'`, 'Vietnam schedule survives reload on a New York device');
+  await pageWait(`!!document.querySelector('#schedule-opens') && document.querySelector('#schedule-opens').value === '10/01/2030 08:00:01'`, 'Vietnam schedule survives reload on a New York device');
   await screenshot('schedule-desktop.png');
   pass('schedule form rejects closing before opening, saves Vietnam local time and warns when a late starter receives fewer than thirty minutes');
 
@@ -517,8 +515,9 @@ async function main() {
   await pageWait(`/Ngân hàng câu hỏi/.test(document.body.innerText) && !![...document.querySelectorAll('button')].find(item => item.textContent.trim() === 'Thêm câu hỏi')`, 'question bank workspace');
   await clickText('Thêm câu hỏi');
   await pageWait(`!!document.querySelector('#question-content')`, 'new bank question form');
-  await pageWait(`['A', 'B', 'C', 'D'].every(key => !!document.querySelector('#question-option-' + key)) && !document.querySelector('#question-points')`, 'simplified multiple-choice form');
-  await setFields([['#question-content', 'Câu hỏi ngân hàng cho kiểm tra giao diện?'], ['#question-option-A', 'Phương án A'], ['#question-option-B', 'Phương án B'], ['#question-option-C', 'Phương án C'], ['#question-option-D', 'Phương án D'], ['#question-answer', 'A']]);
+  await pageWait(`['A', 'B', 'C', 'D'].every(key => !!document.querySelector('#question-option-' + key)) && !!document.querySelector('#question-points') && !!document.querySelector('dialog[open]')`, 'question modal with point configuration');
+  await setFields([['#question-content', 'Câu hỏi ngân hàng cho kiểm tra giao diện?'], ['#question-option-A', 'Phương án A'], ['#question-option-B', 'Phương án B'], ['#question-option-C', 'Phương án C'], ['#question-option-D', 'Phương án D']]);
+  await cdp.evaluate(`document.querySelector('#question-answer-A').click()`);
   await clickText('Lưu câu hỏi');
   await pageWait(`/Câu hỏi ngân hàng cho kiểm tra giao diện/.test(document.body.innerText) && /Đã lưu câu hỏi/.test(document.body.innerText)`, 'bank question creation');
   await clickText('Sửa câu hỏi');

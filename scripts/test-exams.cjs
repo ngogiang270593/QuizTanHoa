@@ -9,7 +9,7 @@ const { DatabaseSync } = require('node:sqlite');
 
 const root = path.resolve(__dirname, '..');
 const backendRoot = path.join(root, 'backend');
-const dll = path.join(backendRoot, 'bin', 'Release', 'net8.0', 'Quiz_TanHoa.Api.dll');
+const dll = process.env.QUIZ_TANHOA_TEST_DLL || path.join(backendRoot, 'bin', 'Release', 'net8.0', 'Quiz_TanHoa.Api.dll');
 const testsRoot = path.join(root, '.tmp-tests');
 const adminPassword = 'ExamIntegration_Test_2026!';
 const demoPassword = 'TanHoa@2026!';
@@ -166,7 +166,7 @@ async function main() {
     assert.equal((await request(route)).status, 401);
     assert.equal((await request(route, { token: candidate.token })).status, 403);
   }
-  assert.equal((await request(`${examBase}/approve`, { token: candidate.token, method: 'POST' })).status, 403);
+  assert.equal((await request(`${examBase}/approve`, { token: candidate.token, method: 'POST', body:{note:'Duyệt đề sau khi kiểm tra'} })).status, 403);
   const otherCompetition = await api('/api/organizer/competitions', admin.token, { status: 201, body: { name: 'Cuộc thi khác kiểm tra phạm vi' } });
   assert.equal((await request(`/api/organizer/competitions/${otherCompetition.id}/exams/${exam.id}`, { token: admin.token })).status, 404);
   pass('exam, preview, approval, question and schedule APIs enforce server roles and competition ownership boundaries');
@@ -175,6 +175,19 @@ async function main() {
   assert.deepEqual(await api(bankRoute, admin.token), []);
   assert.equal((await request(bankRoute, { token: candidate.token })).status, 403);
   const bankQuestion = await api(bankRoute, admin.token, { status: 201, body: makeQuestion() });
+  const selectedCompetition = await api('/api/organizer/competitions', admin.token, { status: 201, body: { name: 'Multi-select QA', initialExam: { name: 'Selected draft', durationMinutes: 20, questionIds: [bankQuestion.id] } } });
+  const selectionBase = `/api/organizer/competitions/${selectedCompetition.id}/exams/${selectedCompetition.initialExamId}`;
+  assert.equal((await api(selectionBase, admin.token)).targetQuestionCount, 1);
+  const selectedRows = await api(`${selectionBase}/questions`, admin.token);
+  assert.equal(selectedRows[0].bankQuestionId, bankQuestion.id);
+  assert.deepEqual(await api(`${selectionBase}/questions/from-bank`, admin.token, { body: { questionIds: [bankQuestion.id], syncCounts: true } }), []);
+  await api(`${selectionBase}/questions/remove-many`, admin.token, { status: 404, body: { questionIds: [selectedRows[0].id, 999999], syncCounts: true } });
+  assert.equal((await api(`${selectionBase}/questions`, admin.token)).length, 1);
+  await api(`${selectionBase}/questions/remove-many`, admin.token, { body: { questionIds: [selectedRows[0].id], syncCounts: true } });
+  assert.equal((await api(`${selectionBase}/questions`, admin.token)).length, 0);
+  assert.equal((await api(bankRoute, admin.token)).length, 1);
+  await api(`/api/organizer/competitions/${selectedCompetition.id}`, admin.token, { method: 'DELETE', status: 204 });
+  pass('multi-select creates the initial draft atomically, skips duplicate links and validates every bulk-removal ID before changing the exam');
   const bankCompetition = await api('/api/organizer/competitions', admin.token, { status: 201, body: { name: 'Kiểm tra liên kết ngân hàng câu hỏi' } });
   const bankCompetitionBase = `/api/organizer/competitions/${bankCompetition.id}`;
   const bankGroups = await api(`${bankCompetitionBase}/field-groups`, admin.token);
@@ -185,7 +198,9 @@ async function main() {
   const changedBankQuestion = { ...bankQuestion, content: 'Nội dung đã đồng bộ từ ngân hàng?' };
   await api(`${bankRoute}/${bankQuestion.id}`, admin.token, { method: 'PUT', body: changedBankQuestion });
   assert.equal((await api(`${bankExamBase}/questions`, admin.token))[0].content, changedBankQuestion.content);
-  const bankApproval = await api(`${bankExamBase}/approve`, admin.token, { method: 'POST' });
+  await api(`${bankExamBase}/submit-review`, admin.token, { method: 'POST', body:{} });
+
+  const bankApproval = await api(`${bankExamBase}/approve`, admin.token, { method: 'POST', body:{note:'Duyệt đề sau khi kiểm tra'} });
   const bankSnapshot = await api(`${bankExamBase}/versions/${bankApproval.id}`, admin.token);
   const secondBankEdit = { ...changedBankQuestion, content: 'Nội dung mới chỉ vào bản nháp?' };
   await api(`${bankRoute}/${bankQuestion.id}`, admin.token, { method: 'PUT', body: secondBankEdit });
@@ -208,7 +223,7 @@ async function main() {
   assert.equal(preview.questions.length, 2);
   assert.equal(preview.validation.canApprove, false);
   assert.match(JSON.stringify(preview.validation.errors), /đáp án|correctAnswer/i);
-  assert.equal((await request(`${examBase}/approve`, { token: admin.token, method: 'POST' })).status, 400);
+  assert.equal((await request(`${examBase}/approve`, { token: admin.token, method: 'POST', body:{note:'Duyệt đề sau khi kiểm tra'} })).status, 400);
   await api(`${examBase}/questions/${missing.id}`, admin.token, { method: 'PUT', body: makeQuestion({ points: 0 }) });
   preview = await api(`${examBase}/preview`, admin.token);
   assert.equal(preview.validation.canApprove, false); assert.match(JSON.stringify(preview.validation.errors), /điểm|points/i);
@@ -222,7 +237,9 @@ async function main() {
   preview = await api(`${examBase}/preview`, admin.token);
   assert.equal(preview.validation.canApprove, true);
   assert.deepEqual(preview.validation.warnings, []);
-  const approved = await api(`${examBase}/approve`, admin.token, { method: 'POST' });
+  await api(`${examBase}/submit-review`, admin.token, { method: 'POST', body:{} });
+
+  const approved = await api(`${examBase}/approve`, admin.token, { method: 'POST', body:{note:'Duyệt đề sau khi kiểm tra'} });
   const oldVersion = await api(`${examBase}/versions/${approved.id}`, admin.token);
   assert.ok(oldVersion.snapshot); assert.match(oldVersion.hashSha256, /^[a-f0-9]{64}$/i);
   inDatabase(db => {
@@ -235,7 +252,7 @@ async function main() {
     assert.throws(() => insert.run(competition.id, exam.id, candidate.id, 999999, started, deadline, null), /foreign key|constraint/i);
   });
   assert.equal((await request(`/api/organizer/competitions/${competition.id}`, { token: admin.token, method: 'DELETE' })).status, 409);
-  const sameApproval = await api(`${examBase}/approve`, admin.token, { method: 'POST' });
+  const sameApproval = await api(`${examBase}/approve`, admin.token, { method: 'POST', body:{note:'Duyệt đề sau khi kiểm tra'} });
   assert.equal(sameApproval.id, approved.id);
   await api(`${examBase}/questions/${missing.id}`, admin.token, { method: 'PUT', body: { ...legal, source: 'Nguồn minh họa đã thay đổi', sourceReviewed: false } });
   assert.equal((await api(`${examBase}/preview`, admin.token)).validation.canApprove, true);
@@ -244,7 +261,9 @@ async function main() {
   pass('source-review metadata no longer blocks approval; editing the draft still preserves the previous approved snapshot');
 
   await api(`${examBase}/questions/${missing.id}`, admin.token, { method: 'PUT', body: { ...legal, source: 'Nguồn minh họa đã thay đổi', sourceReviewed: true } });
-  const nextApproval = await api(`${examBase}/approve`, admin.token, { method: 'POST' });
+  await api(`${examBase}/submit-review`, admin.token, { method: 'POST', body:{} });
+
+  const nextApproval = await api(`${examBase}/approve`, admin.token, { method: 'POST', body:{note:'Duyệt đề sau khi kiểm tra'} });
   assert.notEqual(nextApproval.id, approved.id); assert.equal(nextApproval.versionNumber, oldVersion.versionNumber + 1);
   assert.equal((await api(`${examBase}/versions`, admin.token)).length, 2);
   inDatabase(db => {
@@ -271,10 +290,15 @@ async function main() {
   assert.equal(schedule.opensAtUtc, '2030-01-10T01:00:00Z');
   assert.equal(schedule.startDeadlineUtc, '2030-01-10T01:30:00Z');
   assert.equal(schedule.closesAtUtc, '2030-01-10T01:40:00Z');
-  assert.equal(schedule.opensAtLocal, '10/01/2030 08:00');
+  assert.equal(schedule.opensAtLocal, '10/01/2030 08:00:00');
   assert.ok(schedule.warnings.length > 0, 'The final starter has only ten minutes for a thirty-minute exam');
   const savedSchedule = await api(`${base}/schedule`, admin.token);
-  assert.equal(savedSchedule.opensAtLocal, '10/01/2030 08:00');
+  assert.equal(savedSchedule.opensAtLocal, '10/01/2030 08:00:00');
+  const secondSchedule = { opensAtLocal: '10/01/2030 08:00:01', startDeadlineLocal: '10/01/2030 08:30:02', closesAtLocal: '10/01/2030 08:40:03' };
+  await api(`${base}/schedule`, admin.token, { method: 'PUT', body: secondSchedule });
+  const secondSaved = await api(`${base}/schedule`, admin.token);
+  assert.equal(secondSaved.opensAtUtc, '2030-01-10T01:00:01Z');
+  for (const key of Object.keys(secondSchedule)) assert.equal(secondSaved[key], secondSchedule[key]);
   assert.equal((await request(`${base}/schedule`, { token: admin.token, method: 'PUT', body: {
     opensAtLocal: '31/02/2030 08:00', startDeadlineLocal: '01/03/2030 08:30', closesAtLocal: '01/03/2030 08:40',
   } })).status, 400, 'Invalid calendar dates are rejected');

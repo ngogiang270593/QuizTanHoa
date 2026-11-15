@@ -9,7 +9,7 @@ const { DatabaseSync } = require('node:sqlite');
 
 const root = path.resolve(__dirname, '..');
 const backendRoot = path.join(root, 'backend');
-const dll = path.join(backendRoot, 'bin', 'Release', 'net8.0', 'Quiz_TanHoa.Api.dll');
+const dll = process.env.QUIZ_TANHOA_TEST_DLL || path.join(backendRoot, 'bin', 'Release', 'net8.0', 'Quiz_TanHoa.Api.dll');
 const testsRoot = path.join(root, '.tmp-tests');
 const adminPassword = 'AssignmentIntegration_Test_2026!';
 const demoPassword = 'TanHoa@2026!';
@@ -105,7 +105,9 @@ async function approvedExam(token, competitionId, name, questionCount = 1) {
     options: [{ key: 'A', text: 'Phương án A' }, { key: 'B', text: 'Phương án B' }], correctAnswer: 'A', points: 1,
     explanation: 'Giải thích minh họa không dành cho thí sinh trước khi làm bài.', source: 'Nguồn minh họa nội bộ', group: 'Common', requiresSourceReview: false, sourceReviewed: false,
   } }));
-  const version = await api(`${base}/exams/${exam.id}/approve`, token, { method: 'POST' });
+  await api(`${base}/exams/${exam.id}/submit-review`, token, { method: 'POST', body:{} });
+
+  const version = await api(`${base}/exams/${exam.id}/approve`, token, { method: 'POST', body:{note:'Duyệt đề sau khi kiểm tra'} });
   return { ...exam, config, version, questions, question: questions[0] };
 }
 
@@ -342,7 +344,9 @@ async function main() {
 
   const examBase = `${base}/exams/${firstExam.id}`;
   await api(examBase, admin.token, { method: 'PUT', body: { ...firstExam.config, name: 'Tên bản nháp đã sửa sau phân công' } });
-  const laterVersion = await api(`${examBase}/approve`, admin.token, { method: 'POST' });
+  await api(`${examBase}/submit-review`, admin.token, { method: 'POST', body:{} });
+
+  const laterVersion = await api(`${examBase}/approve`, admin.token, { method: 'POST', body:{note:'Duyệt đề sau khi kiểm tra'} });
   assert.notEqual(laterVersion.id, firstExam.version.id);
   const pinned = await api(`/api/candidate/competitions/${first.id}/exam`, candidate.token);
   assert.equal(pinned.assignedExam.versionId, firstExam.version.id);
