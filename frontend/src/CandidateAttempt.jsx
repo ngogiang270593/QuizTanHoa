@@ -15,6 +15,12 @@ function formatTime(value) {
   return formatVietnamDateTime(value);
 }
 
+function formatElapsed(value) {
+  if (value == null) return '?';
+  const seconds = Math.floor(value / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}.${String(value % 1000).padStart(3, '0')}`;
+}
+
 function Loading() {
   return <div className="attempt-loading" role="status"><span className="loading-spinner" aria-hidden="true" />Đang tải lượt thi...</div>;
 }
@@ -164,6 +170,9 @@ export default function CandidateAttempt({ competitionId, navigate, attemptTab }
   const countdown = attempt?.deadlineAtUtc
     ? Math.max(0, Math.ceil((Date.parse(attempt.deadlineAtUtc) - (now + serverOffset)) / 1000))
     : 0;
+  const timerText = countdown >= 3600
+    ? `${Math.floor(countdown / 3600).toString().padStart(2, '0')}:${Math.floor((countdown % 3600) / 60).toString().padStart(2, '0')}:${(countdown % 60).toString().padStart(2, '0')}`
+    : `${Math.floor(countdown / 60).toString().padStart(2, '0')}:${(countdown % 60).toString().padStart(2, '0')}`;
   const timedOut = attempt?.attemptStatus === 'InProgress' && countdown === 0;
 
   useEffect(() => {
@@ -208,22 +217,22 @@ export default function CandidateAttempt({ competitionId, navigate, attemptTab }
     <section className="panel attempt-panel">
       {status === 'NotStarted' ? <>
         <h2>Sẵn sàng bắt đầu làm bài</h2>
-        <p>Đồng hồ chỉ bắt đầu sau khi máy chủ xác nhận. Lượt thi sẽ được lưu để bạn có thể tiếp tục nếu tải lại trang.</p>
+        <p>Thời lượng đề: <strong>{attempt.assignedExam?.durationMinutes || '—'} phút</strong>. Đồng hồ đếm ngược chỉ bắt đầu sau khi máy chủ xác nhận; tải lại trang không làm đặt lại thời gian.</p>
         {error && <div className="attempt-message attempt-error" role="alert">{error}</div>}
         <button className="button button-primary" type="button" onClick={start} disabled={!attempt.canStart}>{attempt.canStart ? 'Bắt đầu' : attempt.startBlockedReason || 'Chưa thể bắt đầu'}</button>
       </> : status === 'Submitted' && attempt.submittedAtUtc === attempt.deadlineAtUtc ? <>
-        <h2>Đã hết thời gian làm bài</h2><p>Máy chủ đã tự chốt các câu trả lời được lưu đúng hạn lúc <strong>{formatTime(attempt.submittedAtUtc)}</strong>.</p>
+        <h2>Đã hết thời gian làm bài</h2><p>Máy chủ đã tự chốt các câu trả lời được lưu đúng hạn lúc <strong>{formatTime(attempt.submittedAtUtc)}</strong>.</p>{attempt.correctAnswersCount != null && <div className="attempt-result-summary"><p>S&#7889; c&#226;u &#273;&#250;ng: <strong>{attempt.correctAnswersCount}/{attempt.totalQuestionCount}</strong></p><p>Th&#7901;i gian ho&#224;n th&#224;nh: <strong>{formatElapsed(attempt.durationMilliseconds)}</strong></p></div>}
         <p>Điểm và đáp án sẽ hiển thị theo lịch công bố của Ban Tổ chức.</p><button className="button button-secondary" onClick={() => navigate(ROOT)}>Về Cuộc thi của tôi</button>
       </> : status === 'Submitted' ? <>
         <div className="attempt-complete-icon" aria-hidden="true">✓</div><h2>Đã nộp bài thành công</h2>
-        <p>Thời điểm nộp: <strong>{formatTime(attempt.submittedAtUtc)}</strong></p>
+        <p>Thời điểm nộp: <strong>{formatTime(attempt.submittedAtUtc)}</strong></p>{attempt.correctAnswersCount != null && <div className="attempt-result-summary"><p>S&#7889; c&#226;u &#273;&#250;ng: <strong>{attempt.correctAnswersCount}/{attempt.totalQuestionCount}</strong></p><p>Th&#7901;i gian ho&#224;n th&#224;nh: <strong>{formatElapsed(attempt.durationMilliseconds)}</strong></p></div>}
         <p>Bài thi đã được máy chủ chốt. Điểm và đáp án sẽ hiển thị theo lịch công bố của Ban Tổ chức.</p>
         <button className="button button-secondary" onClick={() => navigate(ROOT)}>Về Cuộc thi của tôi</button>
       </> : status === 'Expired' ? <>
         <h2>Đã hết thời gian làm bài</h2><p>Lượt thi đã kết thúc theo thời hạn do máy chủ xác nhận. Thời điểm bắt đầu: {formatTime(attempt.startedAtUtc)}.</p>
         <button className="button button-secondary" onClick={() => navigate(ROOT)}>Về Cuộc thi của tôi</button>
       </> : <>
-        <div className="attempt-header"><div><span className="eyebrow">ĐANG LÀM BÀI</span><h2>Lượt thi</h2></div><div className="attempt-timer" role="timer" aria-label="Thời gian còn lại">{Math.floor(countdown / 60).toString().padStart(2, '0')}:{(countdown % 60).toString().padStart(2, '0')}</div></div>
+        <div className="attempt-header"><div><span className="eyebrow">ĐANG LÀM BÀI</span><h2>Lượt thi</h2></div><div className={`attempt-timer ${countdown <= 300 ? 'attempt-timer-urgent' : ''}`} role="timer" aria-label={`Thời gian còn lại ${timerText}`}><span>Thời gian còn lại</span><strong>{timerText}</strong></div></div>
         <div className="attempt-progress"><span>Đã trả lời <strong>{answeredCount}/{questions.length}</strong> câu</span><span className={`attempt-sync attempt-sync-${syncStatus}`} role="status">{syncStatus === 'saved' ? 'Đã lưu' : syncStatus === 'saving' ? 'Đang đồng bộ...' : 'Chưa đồng bộ'}</span>{syncStatus === 'unsynced' && <button className="text-button" type="button" onClick={retrySync}>Thử đồng bộ lại</button>}</div>
         {(error || syncError) && <div className="attempt-message attempt-error" role="alert">{error || syncError}</div>}
         <div className="attempt-layout">

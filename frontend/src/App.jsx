@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import $ from 'jquery';
+import installSelect2 from 'select2';
+import 'select2/dist/css/select2.min.css';
+installSelect2(window, $);
 import { api, isConnectionError, isSessionRejected, isUnauthorized, TOKEN_KEY } from './api.js';
 import { CandidateCompetitions, CompetitionsPage } from './Competitions.jsx';
 import ExamWorkspace, { isExamWorkspacePath } from './ExamWorkspace.jsx';
@@ -19,6 +23,7 @@ import QuestionBankWorkspace from './QuestionBankWorkspace.jsx';
 import GovernmentMasthead from './GovernmentMasthead.jsx';
 import './government-theme.css';
 import './form-controls.css';
+import './accounts.css';
 
 const TIME_ZONE = 'Asia/Ho_Chi_Minh';
 const ROLE_NAMES = { Organizer: 'Biên tập – Duyệt', Candidate: 'Thi' };
@@ -48,7 +53,7 @@ function Icon({ name, size = 20, ...props }) {
 }
 
 function Brand({ light = false }) {
-  return <div className={`brand ${light ? 'brand-light' : ''}`}><span className="brand-symbol" aria-hidden="true">★</span><div><strong>TÂN HÒA</strong><span>HỘI THI NGHIỆP VỤ</span></div></div>;
+  return <div className={`brand ${light ? 'brand-light' : ''}`}><span aria-hidden="true">★</span><div><strong>XÃ TÂN HÒA</strong><span>HỘI THI NGHIỆP VỤ</span></div></div>;
 }
 
 function Loading({ children }) {
@@ -109,7 +114,7 @@ export function Shell({ user, path, navigate, logout, loggingOut, logoutError, c
   const questionBank = path === '/ban-to-chuc/ngan-hang-cau-hoi';
   const competitionPage = path === '/ban-to-chuc/cuoc-thi' || path.startsWith('/ban-to-chuc/cuoc-thi/');
   const workflowTitles = {[EDITORIAL_PATH]:'Biên tập',[DELIVERY_PATH]:'Duyệt & tổ chức thi',[OPERATIONS_PATH]:'Lịch thi & phân công',[RESULTS_PATH]:'Kết quả & xét giải',[APPROVED_PATH]:'Đề đã duyệt','/thi-sinh/lich-thi':'Lịch thi của tôi','/thi-sinh/ket-qua':'Bài đã nộp & kết quả'};
-  const pageTitle = (path==='/quan-tri'?'Tổng quan hệ thống':path==='/quan-tri/nhat-ky'?'Nhật ký hoạt động':null) || workflowTitles[path] || (path === '/ban-to-chuc/cho-duyet' ? 'Chờ duyệt' : path === '/ban-to-chuc/danh-muc' ? 'Danh mục' : profile ? 'Tài khoản của tôi' : accounts ? 'Danh sách tài khoản' : questionBank ? 'Ngân hàng câu hỏi' : isCandidateWorkspacePath(path) ? path.endsWith('/lam-bai') ? 'Làm bài thi' : path.endsWith('/huong-dan') ? 'Hướng dẫn dự thi' : 'Cuộc thi của tôi' : isExamWorkspacePath(path) ? path.endsWith('/lich-thi') ? 'Lịch thi' : 'Đề thi' : competitionPage ? path.endsWith('/tao') ? 'Tạo cuộc thi' : path.endsWith('/chinh-sua') ? 'Chỉnh sửa cuộc thi' : 'Cuộc thi' : 'Tổng quan');
+  const pageTitle = (path==='/quan-tri'?'Tổng quan hệ thống':path==='/quan-tri/xoa-cuoc-thi'?'X\u00f3a cu\u1ed9c thi':path==='/quan-tri/nhat-ky'?'Nhật ký hoạt động':null) || workflowTitles[path] || (path === '/ban-to-chuc/cho-duyet' ? 'Chờ duyệt' : path === '/ban-to-chuc/danh-muc' ? 'Danh mục' : profile ? 'Tài khoản của tôi' : accounts ? 'Danh sách tài khoản' : questionBank ? 'Ngân hàng câu hỏi' : isCandidateWorkspacePath(path) ? path.endsWith('/lam-bai') ? 'Làm bài thi' : path.endsWith('/huong-dan') ? 'Hướng dẫn dự thi' : 'Cuộc thi của tôi' : isExamWorkspacePath(path) ? path.endsWith('/lich-thi') ? 'Lịch thi' : path.endsWith('/phan-cong') ? 'Phân công dự thi' : path.endsWith('/co-cau-giai') ? 'Cơ cấu giải' : path.endsWith('/trinh-duyet') ? 'Trình duyệt đề' : path.endsWith('/xet-giai') ? 'Kết quả & xét giải' : 'Đề thi' : competitionPage ? path.endsWith('/tao') ? 'Tạo cuộc thi' : path.endsWith('/chinh-sua') ? 'Chỉnh sửa cuộc thi' : 'Cuộc thi' : 'Tổng quan');
   return <div className="portal-layout">
     <GovernmentMasthead />
     <a className="skip-link" href="#main-content">Đến nội dung chính</a>
@@ -134,7 +139,7 @@ function OrganizerCompetitionSummary({ navigate }) {
 
 function Dashboard({ user, data, loading, error, retry, navigate }) {
   const organizer = user.role === 'Organizer';
-  return <><section className="welcome-banner"><div className="welcome-copy"><span className="eyebrow light-eyebrow">{ROLE_NAMES[user.role].toLocaleUpperCase('vi-VN')}</span><h2>Chào mừng trở lại,<br /><span>{user.fullName || user.username}.</span></h2><p>{organizer ? 'Sẵn sàng đồng hành cùng cán bộ, công chức trong hành trình nâng cao năng lực nghiệp vụ.' : 'Cùng học hỏi, nâng cao chuyên môn và tự tin thể hiện năng lực nghiệp vụ của bạn.'}</p><p className="welcome-account">@{user.username}</p><div className="welcome-pill"><span className="status-dot" />Tài khoản đang hoạt động</div></div><div className="welcome-art" aria-hidden="true"><div className="art-ring art-ring-one" /><div className="art-ring art-ring-two" /><div className="art-seal"><span>★</span><svg viewBox="0 0 100 90" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 37 50 15l42 22H8ZM15 42h70M20 43v28m15-28v28m15-28v28m15-28v28m15-28v28M12 75h76M7 82h86" /></svg><small>TÂN HÒA</small></div><span className="art-spark spark-one">✦</span><span className="art-spark spark-two">✧</span></div></section>{error && <PageError retry={retry}>{error}</PageError>}{loading && <div className="data-loading" role="status"><Loading>Đang tải thông tin...</Loading></div>}
+  return <><section className="welcome-banner"><div className="welcome-copy"><span className="eyebrow light-eyebrow">{ROLE_NAMES[user.role].toLocaleUpperCase('vi-VN')}</span><h2>Chào mừng trở lại,<br /><span>{user.fullName || user.username}.</span></h2><p>{organizer ? 'Sẵn sàng đồng hành cùng cán bộ, công chức trong hành trình nâng cao năng lực nghiệp vụ.' : 'Cùng học hỏi, nâng cao chuyên môn và tự tin thể hiện năng lực nghiệp vụ của bạn.'}</p><p className="welcome-account">@{user.username}</p><div className="welcome-pill"><span className="status-dot" />Tài khoản đang hoạt động</div></div><div className="welcome-art" aria-hidden="true"><div className="art-ring art-ring-one" /><div className="art-ring art-ring-two" /><div className="art-seal"><span>★</span><svg viewBox="0 0 100 90" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 37 50 15l42 22H8ZM15 42h70M20 43v28m15-28v28m15-28v28m15-28v28m15-28v28M12 75h76M7 82h86" /></svg><small>XÃ TÂN HÒA</small></div><span className="art-spark spark-one">✦</span><span className="art-spark spark-two">✧</span></div></section>{error && <PageError retry={retry}>{error}</PageError>}{loading && <div className="data-loading" role="status"><Loading>Đang tải thông tin...</Loading></div>}
     {organizer ? <div className="stats-grid"><StatCard icon="users" label="Tổng số tài khoản" value={data?.userCount} description="Tài khoản trong hệ thống" /><StatCard icon="shield" label="Ban Tổ chức" value={data?.organizerCount} description="Tài khoản tổ chức" tone="teal" /><StatCard icon="user" label="Thí sinh" value={data?.candidateCount} description="Tài khoản dự thi" tone="gold" /></div> : <div className="candidate-summary"><div className="summary-icon"><Icon name="shield" size={24} /></div><div><strong>Không gian dành cho thí sinh</strong><p>Tài khoản của bạn đã sẵn sàng. Thông tin hội thi sẽ được cập nhật tại đây.</p></div><span className="status-label"><Icon name="check" size={14} /> Đã xác thực</span></div>}
     {organizer && data?.demoUserCount > 0 && <p className="demo-count-note"><Icon name="info" size={16} /> Các số liệu tài khoản ở trên bao gồm {data.demoUserCount} tài khoản minh họa.</p>}
     <div className="dashboard-columns">{organizer ? <OrganizerCompetitionSummary navigate={navigate} /> : <CandidateCompetitions />}<div className="dashboard-side"><section className="panel quick-panel"><div className="panel-heading"><h2>Truy cập nhanh</h2></div><button className="quick-link" onClick={() => navigate('/tai-khoan')}><span className="quick-icon"><Icon name="user" /></span><span><strong>Thông tin tài khoản</strong><small>Xem thông tin và quyền truy cập</small></span><Icon name="chevron" size={17} /></button>{organizer && hasAccess(user,'manageUsers') && <button className="quick-link" onClick={() => navigate('/ban-to-chuc/tai-khoan')}><span className="quick-icon"><Icon name="users" /></span><span><strong>Danh sách tài khoản</strong><small>Xem các vai trò trong hệ thống</small></span><Icon name="chevron" size={17} /></button>}</section><section className="note-card"><span className="eyebrow"><Icon name="info" size={16} /> THÔNG TIN CHUNG</span><h3>Thống nhất giờ Việt Nam</h3><p>Thời gian hiển thị và lịch hội thi được sử dụng theo múi giờ Việt Nam (UTC+7).</p><code>{TIME_ZONE}</code></section></div></div><section className="foundation-strip"><span className="foundation-mark"><Icon name="check" size={17} /></span><div><strong>Nền tảng hệ thống đã sẵn sàng</strong><span>Đăng nhập · Phân quyền · Thông tin tài khoản</span></div></section></>;
@@ -150,6 +155,17 @@ export function Profile({ user, onPasswordChanged }) {
 function Accounts({ data, error, loading, retry, currentUser }) {
   const [accessEditing,setAccessEditing] = useState(null);
   const [groupFilter,setGroupFilter]=useState('');
+  const groupFilterSelect=useRef(null);
+  useEffect(()=>{
+    const select=$(groupFilterSelect.current);
+    select.select2({width:'100%',language:{noResults:()=> 'Không có nhóm phù hợp.'}});
+    select.on('change.accountsFilter',()=>setGroupFilter(select.val()||''));
+    return()=>{select.off('.accountsFilter');if(select.hasClass('select2-hidden-accessible'))select.select2('destroy');};
+  },[]);
+  useEffect(()=>{
+    const select=$(groupFilterSelect.current);
+    if(select.length&&select.val()!==groupFilter)select.val(groupFilter).trigger('change.select2');
+  },[groupFilter]);
   const [departmentFilter,setDepartmentFilter]=useState(()=>new URLSearchParams(window.location.search).get('phongBan')||'');
   const allUsers = Array.isArray(data) ? data : data?.users || [];
   const users = allUsers.filter(u=>(!departmentFilter||unitNameKey(u.department)===unitNameKey(departmentFilter))&&(!groupFilter||accountGroup(u)===groupFilter));
@@ -202,11 +218,11 @@ function Accounts({ data, error, loading, retry, currentUser }) {
   }
   return <section className="panel accounts-panel">
     <div className="panel-heading"><div><h2>Tài khoản trong hệ thống</h2><p>Quản lý ba nhóm Quản trị hệ thống, Biên tập – Duyệt và Thi. Tài khoản có lịch sử thi được khóa để giữ dữ liệu.</p></div>{!loading && !error && <span className="badge-neutral">{users.length} tài khoản</span>}</div>
-    <label className="catalog-search">Lọc nhóm tài khoản<select value={groupFilter} onChange={e=>setGroupFilter(e.target.value)}><option value="">Tất cả nhóm</option>{Object.entries(GROUP_LABELS).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
+    <label className="accounts-group-filter" htmlFor="account-group-filter">Lọc nhóm tài khoản<select id="account-group-filter" ref={groupFilterSelect} value={groupFilter} onChange={e=>setGroupFilter(e.target.value)}><option value="">Tất cả nhóm</option>{Object.entries(GROUP_LABELS).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
     {departmentFilter&&<div className="notice" role="status">Đang xem tài khoản thuộc {departmentFilter}<button type="button" className="text-button" onClick={()=>{setDepartmentFilter('');window.history.replaceState({},'','/ban-to-chuc/tai-khoan');}}>Bỏ lọc phòng ban</button></div>}
     {editError && <PageError>{editError}</PageError>}{notice && <div className="notice exam-notice-success" role="status">{notice}</div>}
     {accessEditing && <UserAccessEditor key={accessEditing.id} account={accessEditing} onSaved={()=>{setAccessEditing(null);setNotice('Đã cập nhật quyền. Tài khoản được cấp quyền cần đăng nhập lại.');retry();}} onCancel={()=>setAccessEditing(null)}/> }
-    {!creating && <button className="button button-primary" type="button" disabled={busy || Boolean(editing)} onClick={() => { setCreating(true); setEditError(''); setNotice(''); }}>Thêm tài khoản</button>}
+    {!creating && <button className="button button-primary accounts-add-button" type="button" disabled={busy || Boolean(editing)} onClick={() => { setCreating(true); setEditError(''); setNotice(''); }}>Thêm tài khoản</button>}
     {creating && <form className="accounts-row-editor" onSubmit={create}>
       <h3>Tạo tài khoản</h3>
       <div className="bank-filters">
@@ -295,7 +311,7 @@ export default function App() {
   const [path, navigate] = useRoute();
   const initialPath = useRef(path);
   const [user, setUser] = useState(null);
-  const [checkingSession, setCheckingSession] = useState(() => Boolean(localStorage.getItem(TOKEN_KEY)));
+  const [checkingSession, setCheckingSession] = useState(() => Boolean(sessionStorage.getItem(TOKEN_KEY)));
   const [sessionError, setSessionError] = useState('');
   const [sessionAttempt, setSessionAttempt] = useState(0);
   const [username, setUsername] = useState('');
@@ -319,7 +335,7 @@ export default function App() {
     sessionRequest.current?.abort(); loginRequest.current?.abort(); sessionRequest.current = null; loginRequest.current = null; loginInProgress.current = false; setSubmitting(false);
   }, []);
   const clearSession = useCallback((message = '') => {
-    cancelRequests(); localStorage.removeItem(TOKEN_KEY); setUser(null); setPassword(''); setLoginError(message); setSessionError(''); setCheckingSession(false); setLogoutError(''); setDataState({ data: null, loading: false, error: '' }); navigate('/dang-nhap', true);
+    cancelRequests(); sessionStorage.removeItem(TOKEN_KEY); setUser(null); setPassword(''); setLoginError(message); setSessionError(''); setCheckingSession(false); setLogoutError(''); setDataState({ data: null, loading: false, error: '' }); navigate('/dang-nhap', true);
   }, [cancelRequests, navigate]);
 
   useEffect(() => {
@@ -335,7 +351,7 @@ export default function App() {
 
   useEffect(() => {
     const controller = new AbortController(); sessionRequest.current = controller;
-    if (!localStorage.getItem(TOKEN_KEY)) { setCheckingSession(false); return () => controller.abort(); }
+    if (!sessionStorage.getItem(TOKEN_KEY)) { setCheckingSession(false); return () => controller.abort(); }
     setCheckingSession(true); setSessionError('');
     api.get('/Auth/me', { signal: controller.signal }).then(({ data }) => { if (!controller.signal.aborted) setUser(readUser(data)); }).catch((error) => {
       if (controller.signal.aborted) return;
@@ -347,7 +363,7 @@ export default function App() {
 
   useEffect(() => {
     const interceptor = api.interceptors.response.use((response) => response, (error) => {
-      const token = localStorage.getItem(TOKEN_KEY);
+      const token = sessionStorage.getItem(TOKEN_KEY);
       const invalidSession = error.response?.status === 401 || (error.response?.status === 403 && error.config?.url === '/Auth/me');
       if (invalidSession && error.config?.url !== '/Auth/login' && token && error.config?.headers?.Authorization === `Bearer ${token}`) clearSession('Phiên đăng nhập không còn hiệu lực. Vui lòng đăng nhập lại.');
       return Promise.reject(error);
@@ -358,7 +374,7 @@ export default function App() {
   useEffect(() => {
     function handleStorage(event) {
       if (event.key !== TOKEN_KEY && event.key !== null) return;
-      cancelRequests(); setUser(null); setPassword(''); setSessionError(''); setLoginError(''); setLogoutError(''); setSessionAttempt((attempt) => attempt + 1); setCheckingSession(Boolean(localStorage.getItem(TOKEN_KEY)));
+      cancelRequests(); setUser(null); setPassword(''); setSessionError(''); setLoginError(''); setLogoutError(''); setSessionAttempt((attempt) => attempt + 1); setCheckingSession(Boolean(sessionStorage.getItem(TOKEN_KEY)));
     }
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
@@ -409,7 +425,7 @@ export default function App() {
       if (controller.signal.aborted) return;
       const authenticatedUser = readUser(data);
       if (typeof data.token !== 'string' || !data.token.trim()) throw new Error('Máy chủ chưa cấp phiên đăng nhập. Vui lòng thử lại.');
-      localStorage.setItem(TOKEN_KEY, data.token); setUser(authenticatedUser); setPassword('');
+      sessionStorage.setItem(TOKEN_KEY, data.token); setUser(authenticatedUser); setPassword('');
       const wanted = initialPath.current;
       const permitted = canOpenAccountPath(authenticatedUser,wanted);
       navigate(permitted ? wanted : homeFor(authenticatedUser), true); initialPath.current = '/';
@@ -421,7 +437,7 @@ export default function App() {
 
   async function logout() {
     if (logoutInProgress.current) return;
-    if (!localStorage.getItem(TOKEN_KEY)) { clearSession(); return; }
+    if (!sessionStorage.getItem(TOKEN_KEY)) { clearSession(); return; }
     logoutInProgress.current = true; setLoggingOut(true); setLogoutError('');
     try { await api.post('/Auth/logout'); clearSession(); }
     catch (error) { if (isSessionRejected(error)) clearSession(); else setLogoutError('Chưa thể kết thúc phiên trên máy chủ. Vui lòng kiểm tra kết nối và đăng xuất lại.'); }

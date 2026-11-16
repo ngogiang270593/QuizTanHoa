@@ -1,0 +1,49 @@
+.accounts-group-filter {
+  display: grid;
+  gap: 8px;
+  width: min(100%, 630px);
+  margin: 20px;
+}
+
+.accounts-group-filter .select2-container {
+  width: 100% !important;
+}
+
+.accounts-group-filter .select2-container--default .select2-selection--single {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 4px 12px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--control-radius);
+  background: var(--control-bg);
+  color: var(--control-text);
+}
+
+.accounts-group-filter .select2-selection__rendered {
+  padding: 0;
+  color: inherit;
+  line-height: 1.5;
+}
+
+.accounts-group-filter .select2-selection__arrow {
+  top: 50% !important;
+  right: 10px !important;
+  transform: translateY(-50%);
+}
+
+.accounts-group-filter .select2-container--default.select2-container--focus .select2-selection--single {
+  border-color: var(--control-focus);
+  box-shadow: 0 0 0 3px #9b702d20;
+}
+
+.accounts-add-button {
+  margin: 0 20px 24px;
+}
+
+@media (max-width: 700px) {
+  .accounts-group-filter {
+    width: auto;
+    margin: 16px;
+  }
+}

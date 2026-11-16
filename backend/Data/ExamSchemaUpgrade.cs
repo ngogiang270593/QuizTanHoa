@@ -31,6 +31,7 @@ public static class ExamSchemaUpgrade
 
     public static async Task ApplyAsync(AppDbContext db, DbTransaction transaction)
     {
+        await AddColumn(db, transaction, "Competitions", "DurationMinutes", "INTEGER NULL");
         var hasDeadline = false;
         await using (var command = db.Database.GetDbConnection().CreateCommand())
         {

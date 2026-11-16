@@ -13,6 +13,8 @@ const CANDIDATE_ROOT = '/thi-sinh/cuoc-thi';
 const STATUS_NAMES = { Draft: 'Nháp', Published: 'Đã công bố', Ended: 'Đã kết thúc' };
 const ATTEMPT_NAMES = { NotStarted: 'Chưa bắt đầu', InProgress: 'Đang làm bài', Submitted: 'Đã nộp bài', Expired: 'Đã hết thời gian' };
 const asList = value => Array.isArray(value) ? value : [];
+const AWARD_ICON_ASSETS={first:'/awards/giai-nhat.png',second:'/awards/giai-nhi.png',third:'/awards/giai-ba.png'};
+function AwardIcon({icon,className}) { const src=AWARD_ICON_ASSETS[icon];return src?<img className={className||'award-icon-image'} src={src} alt="" aria-hidden="true"/>:<span className={className} aria-hidden="true">🏆</span>; }
 const issueText = value => typeof value === 'string' ? value : value?.message || '';
 const elapsedTime = value => {
   if (value == null) return '—';
@@ -98,7 +100,7 @@ export function CompetitionPublication({ competitionId, revision = 0, onPublishe
   </section>;
 }
 
-export default function AssignmentWorkspace({ competitionId }) {
+export default function AssignmentWorkspace({ competitionId, navigate }) {
   const base = `/organizer/competitions/${competitionId}`;
   const [revision, setRevision] = useState(0);
   const options = useData(`${base}/assignment-options`, revision);
@@ -140,14 +142,14 @@ export default function AssignmentWorkspace({ competitionId }) {
   }
   async function assign(event) {
     event.preventDefault();
-    if (!selected.length || !examId) { setError('Vui lòng chọn ít nhất một tài khoản và một đề đã duyệt.'); return; }
+    if (!selected.length || !examId) { setError('Vui lòng chọn ít nhất một tài khoản và một đề thi.'); return; }
     await run('assign', async signal => {
       await api.post(`${base}/assignments`, { userIds: selected, examId: Number(examId) }, { signal });
-      if (!signal.aborted) { setNotice(`Đã phân đề cho ${selected.length} tài khoản.`); setSelected([]); }
+      if (!signal.aborted) { setNotice(`Đã phân đề cho ${selected.length} tài khoản.`); setSelected([]); navigate(`/ban-to-chuc/cuoc-thi/${competitionId}/trinh-duyet`); }
     });
   }
   async function saveChange(row) {
-    if (!editExam) { setError('Vui lòng chọn đề đã duyệt để thay đổi phân công.'); return; }
+    if (!editExam) { setError('Vui lòng chọn đề nháp hoặc đã duyệt để thay đổi phân công.'); return; }
     await run(`edit-${row.userId}`, async signal => {
       await api.put(`${base}/assignments/${row.userId}`, { examId: Number(editExam) }, { signal });
       if (!signal.aborted) { setEditing(null); setNotice('Đã cập nhật đề được phân công.'); }
@@ -182,18 +184,19 @@ export default function AssignmentWorkspace({ competitionId }) {
   const loading = options.loading || assigned.loading;
   return <div className="assignment-workspace">
     <Notice>{error || options.error || assigned.error}</Notice><Notice kind="success">{notice}</Notice>
-    <section className="panel assignment-section"><div className="assignment-section-heading"><div><h2>Phân công dự thi</h2><p>Chọn tài khoản thí sinh đang hoạt động và gán đề đã duyệt của cuộc thi này.</p></div><span className="badge-neutral">{assignments.length} phân công</span></div>
+    <section className="panel assignment-section"><div className="assignment-section-heading"><div><span className="eyebrow">BƯỚC 2</span><h2>Phân công dự thi</h2><p>Chọn thí sinh và gán đề nháp hoặc đã duyệt. Đề nháp sẽ được gắn phiên bản sau khi duyệt.</p></div><span className="badge-neutral">{assignments.length} phân công</span></div>
       {loading && !options.data ? <Loading /> : <form className="assignment-form" onSubmit={assign}>
-        <div className="field"><label htmlFor="assignment-exam">Đề được phân công</label><select id="assignment-exam" value={examId} onChange={event => { setExamId(event.target.value); setError(''); }} disabled={Boolean(busy) || !exams.length}><option value="">Chọn đề đã duyệt</option>{exams.map(exam => <option value={exam.id} key={exam.id}>{exam.name} · phiên bản {exam.versionNumber}{exam.isDemo ? ' · Minh họa' : ''}</option>)}</select>{!exams.length && <p className="assignment-hint">Chưa có đề đã duyệt hiện tại. Hoàn tất duyệt đề ở tab Đề thi trước khi phân công.</p>}</div>
+        <div className="field"><label htmlFor="assignment-exam">Đề được phân công</label><select id="assignment-exam" value={examId} onChange={event => { setExamId(event.target.value); setError(''); }} disabled={Boolean(busy) || !exams.length}><option value="">Chọn đề thi</option>{exams.map(exam => <option value={exam.id} key={exam.id}>{exam.name} · {exam.isApproved ? `đã duyệt, phiên bản ${exam.versionNumber}` : 'đề nháp, sẽ gắn phiên bản khi được duyệt'}{exam.isDemo ? ' · Minh họa' : ''}</option>)}</select>{!exams.length && <p className="assignment-hint">Chưa có đề nháp hoặc đã duyệt để phân công.</p>}</div>
         <div className="assignment-picker-heading"><label htmlFor="assignment-search">Tài khoản thí sinh đang hoạt động</label><span>{selected.length} đã chọn</span></div><input id="assignment-search" className="assignment-search" type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Tìm theo họ tên, tên đăng nhập hoặc bộ phận" disabled={Boolean(busy)} />
         <div className="assignment-account-picker" role="group" aria-label="Chọn thí sinh">{!accounts.length ? <p className="assignment-empty">Chưa có tài khoản thí sinh đang hoạt động.</p> : !matches.length ? <p className="assignment-empty">Không tìm thấy tài khoản phù hợp.</p> : matches.map(account => <label key={account.id} className={`assignment-account-choice ${assignedIds.has(account.id) ? 'already-assigned' : ''}`}><input id={`assignment-user-${account.id}`} type="checkbox" checked={selected.includes(account.id)} disabled={Boolean(busy) || loading || assignedIds.has(account.id)} onChange={() => toggle(account.id)} /><span><strong>{account.fullName || account.username}</strong><small>@{account.username} · {account.department || 'Chưa cập nhật bộ phận'}</small>{account.isDemo && <span className="demo-label">Tài khoản minh họa</span>}</span>{assignedIds.has(account.id) && <em>Đã phân công</em>}</label>)}</div>
-        <p className="assignment-hint">Mỗi tài khoản chỉ có một phân công trong cuộc thi này. Tài khoản vẫn có thể được phân vào các cuộc thi khác.</p><button className="button button-primary" type="submit" disabled={Boolean(busy) || loading || Boolean(options.error || assigned.error) || !exams.length}>{busy === 'assign' ? 'Đang phân công...' : 'Phân công dự thi'}</button>
+        <p className="assignment-hint">Trước khi trình duyệt cần có lịch thi và ít nhất một phân công. Mỗi tài khoản chỉ có một phân công trong cuộc thi này. Tài khoản vẫn có thể được phân vào các cuộc thi khác.</p>{!exams.length&&<a className="button button-secondary" href={`/ban-to-chuc/cuoc-thi/${competitionId}/de-thi`} onClick={event=>{event.preventDefault();navigate(`/ban-to-chuc/cuoc-thi/${competitionId}/de-thi`);}}>Chưa có đề thi? Tạo đề trước</a>}<button className="button button-primary" type="submit" disabled={Boolean(busy) || loading || Boolean(options.error || assigned.error) || !exams.length}>{busy === 'assign' ? 'Đang phân công...' : 'Phân công dự thi'}</button>
       </form>}
     </section>
+    <div className="exam-actions"><button type="button" className="button button-secondary" onClick={()=>navigate(`/ban-to-chuc/cuoc-thi/${competitionId}/lich-thi`)}>Quay lại: Lịch thi</button>{assignments.length>0&&<button type="button" className="button button-secondary" disabled={loading} onClick={()=>navigate(`/ban-to-chuc/cuoc-thi/${competitionId}/trinh-duyet`)}>Tiếp tục: Cơ cấu giải</button>}</div>
     <section className="panel assignment-section"><div className="assignment-section-heading"><div><h2>Danh sách phân công</h2><p>Có thể đổi đề hoặc thu hồi trước khi thí sinh bắt đầu làm bài.</p></div></div>
       {assigned.loading && !assigned.data ? <Loading /> : !assignments.length ? <div className="assignment-empty"><strong>Chưa có phân công dự thi</strong><p>Chọn tài khoản và đề đã duyệt ở biểu mẫu phía trên.</p></div> : <div className="assignment-list" data-testid="assignment-list">{assignments.map(row => <article className="assignment-row" key={row.userId} data-user-id={row.userId}>
         <div className="assignment-person"><h3>{row.fullName || row.username}</h3><p>@{row.username}</p><span className="assignment-department">{row.department || 'Chưa cập nhật bộ phận'}</span>{row.isDemo && <span className="demo-label">Minh họa</span>}{row.isActive === false && <span className="assignment-inactive">Tài khoản đã khóa</span>}</div>
-        <div className="assignment-exam-summary"><span className="assignment-label">ĐỀ ĐƯỢC GÁN</span><strong>{row.examName || 'Chưa được gán đề hợp lệ'}</strong>{row.versionNumber && <small>Phiên bản đã duyệt {row.versionNumber}</small>}<span className={`assignment-attempt assignment-attempt-${row.attemptStatus?.toLowerCase()}`}>{row.attemptStatusLabel || ATTEMPT_NAMES[row.attemptStatus] || 'Chưa bắt đầu'}</span></div>
+        <div className="assignment-exam-summary"><span className="assignment-label">ĐỀ ĐƯỢC GÁN</span><strong>{row.examName || 'Chưa được gán đề hợp lệ'}</strong>{row.awaitingApproval ? <small>Đề nháp · chưa có phiên bản được duyệt</small> : row.versionNumber && <small>Phiên bản đã duyệt {row.versionNumber}</small>}<span className={`assignment-attempt assignment-attempt-${row.attemptStatus?.toLowerCase()}`}>{row.attemptStatusLabel || ATTEMPT_NAMES[row.attemptStatus] || 'Chưa bắt đầu'}</span></div>
         <div className="assignment-row-actions">{editing === row.userId ? <><label className="visually-hidden" htmlFor={`assignment-edit-exam-${row.userId}`}>Đổi đề cho {row.fullName || row.username}</label><select id={`assignment-edit-exam-${row.userId}`} value={editExam} onChange={event => setEditExam(event.target.value)} disabled={Boolean(busy)}><option value="">Chọn đề đã duyệt</option>{exams.map(exam => <option key={exam.id} value={exam.id}>{exam.name} · phiên bản {exam.versionNumber}</option>)}</select><div className="assignment-actions"><button type="button" className="button button-primary" disabled={Boolean(busy)} onClick={() => saveChange(row)}>Lưu phân công</button><button type="button" className="button button-secondary" disabled={Boolean(busy)} onClick={() => setEditing(null)}>Hủy đổi đề</button></div></> : revoking === row.userId ? <><p>Thu hồi phân công của tài khoản này?</p><div className="assignment-actions"><button type="button" className="button assignment-button-danger" disabled={Boolean(busy)} onClick={() => revoke(row)}>Xác nhận thu hồi</button><button type="button" className="button button-secondary" disabled={Boolean(busy)} onClick={() => setRevoking(null)}>Hủy thu hồi</button></div></> : <><div className="assignment-actions"><button type="button" className="button button-secondary" disabled={Boolean(busy) || !row.canChange || !exams.length} onClick={() => { setEditing(row.userId); setEditExam(exams.some(exam => exam.id === row.examId) ? String(row.examId) : ''); setRevoking(null); setNotice(''); setError(''); }}>Đổi đề</button><button type="button" className="button button-quiet" disabled={Boolean(busy) || !row.canChange} onClick={() => { setRevoking(row.userId); setEditing(null); setNotice(''); setError(''); }}>Thu hồi</button></div>{!row.canChange && <small className="assignment-locked">Đã bắt đầu làm bài hoặc cuộc thi đã kết thúc; không thể đổi hay thu hồi.</small>}</>}
           {row.attemptStatus !== 'NotStarted' && <div className="assignment-session-actions">
             {sessionAction === row.userId ? <><p>Máy chủ chuyển sang phiên đăng nhập mới nhất đang hoạt động của thí sinh. Ghi lý do; phiên cũ sẽ mất quyền ngay.</p><label htmlFor={`session-reason-${row.userId}`}>Lý do xác minh và chuyển phiên</label><textarea id={`session-reason-${row.userId}`} rows="3" maxLength="1000" value={sessionReason} onChange={event => setSessionReason(event.target.value)} disabled={Boolean(busy)} /><label className="assignment-retake-choice"><input type="checkbox" checked={allowRetake} onChange={event => setAllowRetake(event.target.checked)} disabled={Boolean(busy)} />Cấp lượt thay thế, đánh dấu lượt cũ không tính kết quả (chỉ khi thể lệ cho phép thi lại)</label><div className="assignment-actions"><button type="button" className="button assignment-button-danger" disabled={Boolean(busy) || !sessionReason.trim()} onClick={() => transferSession(row)}>{busy === `transfer-${row.userId}` ? 'Đang chuyển...' : allowRetake ? 'Xác nhận cấp lượt mới' : 'Xác nhận chuyển phiên'}</button><button type="button" className="button button-secondary" disabled={Boolean(busy)} onClick={() => { setSessionAction(null); setSessionReason(''); setAllowRetake(false); }}>Hủy</button></div></> : <button type="button" className="button button-secondary" disabled={Boolean(busy)} onClick={() => { setSessionAction(row.userId); setSessionReason(''); setAllowRetake(false); setEditing(null); setRevoking(null); setNotice(''); setError(''); }}>Chuyển phiên / xử lý sự cố</button>}
@@ -207,6 +210,7 @@ export default function AssignmentWorkspace({ competitionId }) {
 }
 
 function CompetitionResultsPanel({ competitionId, revision }) {
+  const {can}=useAccess();
   const base = `/organizer/competitions/${competitionId}/results`;
   const [rankingGroup, setRankingGroup] = useState('');
   const [busy, setBusy] = useState('');
@@ -231,7 +235,7 @@ function CompetitionResultsPanel({ competitionId, revision }) {
   const score = value => value == null ? '—' : new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value);
   const status = { Submitted: 'Đã nộp', Invalidated: 'Đã loại', InProgress: 'Đang làm', Expired: 'Hết hạn', NotStarted: 'Chưa bắt đầu' };
   return <section className="panel assignment-section assignment-results" aria-label="Kết quả và xếp hạng">
-    <div className="assignment-section-heading"><div><h2>Kết quả và xếp hạng</h2><p>Xếp số câu đúng giảm dần, sau đó theo thời gian làm bài tăng dần. Chỉ lượt đã nộp và chưa bị loại được xếp hạng.</p></div><button className="button button-secondary" type="button" onClick={exportExcel} disabled={Boolean(busy) || results.loading || !results.data}>{busy === 'export' ? 'Đang xuất...' : 'Xuất Excel'}</button></div>
+    <div className="assignment-section-heading"><div><h2>Kết quả và xếp hạng</h2><p>X&#7871;p theo s&#7889; c&#226;u &#273;&#250;ng cao nh&#7845;t, r&#7891;i th&#7901;i gian nhanh nh&#7845;t. Ch&#7881; c&#7847;n r&#224; so&#225;t &#273;&#7891;ng h&#7841;ng n&#7871;u n&#243; &#7843;nh h&#432;&#7903;ng &#273;&#7871;n su&#7845;t gi&#7843;i.</p></div>{can('operate')&&<button className="button button-secondary" type="button" onClick={exportExcel} disabled={Boolean(busy) || results.loading || !results.data}>{busy === 'export' ? 'Đang xuất...' : 'Xuất Excel'}</button>}</div>
     <Notice>{error || results.error}</Notice>
     {results.loading && !results.data ? <Loading /> : results.data && <>
       <label className="assignment-results-filter">Nhóm đề / nhóm xếp hạng
@@ -242,13 +246,8 @@ function CompetitionResultsPanel({ competitionId, revision }) {
       </label>
       <p className="assignment-hint">Nếu số câu đúng và thời gian làm bài bằng nhau, thí sinh đồng hạng. Điểm vẫn được hiển thị để Ban Tổ chức đối chiếu; câu đúng được chấm theo snapshot đề đã phát.</p>
       {!rows.length ? <div className="assignment-empty">Chưa có lượt thi hoặc phân công trong nhóm này.</div> : <div className="assignment-results-wrap"><table className="assignment-results-table" data-testid="competition-results">
-        <thead><tr><th>Hạng</th><th>Mã thí sinh</th><th>Họ tên</th><th>Bộ phận</th><th>Nhóm đề</th><th>Số câu đúng</th><th>Thời gian làm bài (mm:ss.mmm)</th><th>Điểm chung</th><th>Điểm chuyên môn</th><th>Điểm tình huống</th><th>Tổng điểm</th><th>Thời điểm nộp</th><th>Trạng thái lượt thi</th><th>Hợp lệ</th></tr></thead>
-        <tbody>{rows.map((row, index) => <tr key={row.attemptId ?? `assignment-${row.candidateCode}-${index}`}>
-          <td>{row.rank ?? '—'}</td><td>{row.candidateCode}</td><td>{row.fullName}</td><td>{row.department || '—'}</td><td>{row.fieldGroupName || '—'}</td>
-          <td>{row.correctAnswersCount ?? '—'}</td><td>{elapsedTime(row.durationMilliseconds)}</td>
-          <td>{score(row.commonScore)}</td><td>{score(row.specializedScore)}</td><td>{score(row.scenarioScore)}</td><td>{score(row.totalScore)}</td>
-          <td>{row.submittedAtUtc ? <DateText value={row.submittedAtUtc} /> : '—'}</td><td>{status[row.attemptStatus] || row.attemptStatus}</td><td><span className={`assignment-result-status ${row.isValid ? 'valid' : ''}`}>{row.isValid ? 'Hợp lệ' : 'Không hợp lệ'}</span></td>
-        </tr>)}</tbody>
+        <thead><tr><th>H&#7841;ng</th><th>Giải</th><th>M&#227; th&#237; sinh</th><th>H&#7885; t&#234;n</th><th>B&#7897; ph&#7853;n</th><th>Nh&#243;m &#273;&#7873;</th><th>S&#7889; c&#226;u &#273;&#250;ng</th><th>Th&#7901;i gian</th><th>Tr&#7841;ng th&#225;i</th><th>H&#7907;p l&#7879;</th></tr></thead>
+        <tbody>{rows.map((row, index) => <tr key={row.attemptId ?? `assignment-${row.candidateCode}-${index}`}><td>{row.rank ?? "-"}</td><td>{row.awardName ? <><AwardIcon icon={row.awardIcon}/> {row.awardName}</> : '—'}</td><td>{row.candidateCode}</td><td>{row.fullName}</td><td>{row.department || "-"}</td><td>{row.fieldGroupName || "-"}</td><td>{row.correctAnswersCount ?? "-"}</td><td>{elapsedTime(row.durationMilliseconds)}</td><td>{status[row.attemptStatus] || row.attemptStatus}</td><td>{row.isValid ? "OK" : "-"}</td></tr>)}</tbody>
       </table></div>}
     </>}
   </section>;
@@ -259,6 +258,7 @@ export function AwardReviewWorkspace({ competitionId }) {
   const base = `/organizer/competitions/${competitionId}/awards`;
   const [revision, setRevision] = useState(0);
   const resource = useData(base, revision);
+  const awardCatalog = useData('/organizer/award-catalog',revision);
   const [categories, setCategories] = useState([]);
   const [newGroup, setNewGroup] = useState('');
   const [newAwardName, setNewAwardName] = useState('');
@@ -281,7 +281,7 @@ export function AwardReviewWorkspace({ competitionId }) {
     setCategories(asList(state.categories));
     setProposalRows(asList(state.proposedNominees));
     setSelected(Object.fromEntries(asList(state.nominees).map(item => [item.attemptId, {
-      attemptId: item.attemptId, awardName: item.awardName, rankingGroupName: item.rankingGroupName,
+      attemptId: item.attemptId, awardName: item.awardName, awardIcon:item.awardIcon||'trophy', rankingGroupName: item.rankingGroupName,
     }])));
     setIndividualScoresPublished(Boolean(state.individualScoresPublished));
     setTieReviewConfirmed(Boolean(state.tieReviewConfirmed));
@@ -290,8 +290,9 @@ export function AwardReviewWorkspace({ competitionId }) {
 
   function addCategory(event) {
     event.preventDefault();
-    if (!newGroup || !newAwardName.trim() || !Number(newQuantity)) return;
-    setCategories(current => [...current, { rankingGroupName: newGroup, awardName: newAwardName.trim(), quantity: Number(newQuantity) }]);
+    const preset=asList(awardCatalog.data).find(icon=>icon.name===newAwardName);
+    if (!newGroup || !preset || !Number(newQuantity)) return;
+    setCategories(current => [...current, { rankingGroupName: newGroup, awardName: preset.name, icon:preset.key, quantity: Number(newQuantity) }]);
     setNewAwardName('');
     setNewQuantity('1');
   }
@@ -310,7 +311,7 @@ export function AwardReviewWorkspace({ competitionId }) {
       const { data } = await api.post(`${base}/proposal`, { categories });
       setProposalRows(asList(data.nominees));
       setSelected(Object.fromEntries(asList(data.nominees).map(item => [item.attemptId, {
-        attemptId: item.attemptId, awardName: item.awardName, rankingGroupName: item.rankingGroupName,
+        attemptId: item.attemptId, awardName: item.awardName, awardIcon:item.awardIcon||'trophy', rankingGroupName: item.rankingGroupName,
       }])));
       setTieReviewConfirmed(false);
       setNotice(`Đã lập danh sách dự kiến gồm ${asList(data.nominees).length} lượt thi.`);
@@ -373,28 +374,29 @@ export function AwardReviewWorkspace({ competitionId }) {
     setSelected(current => {
       const next = { ...current };
       if (!awardName) delete next[row.attemptId];
-      else next[row.attemptId] = { attemptId: row.attemptId, awardName, rankingGroupName: row.rankingGroupName };
+      else { const category=awardNames(row.rankingGroupName).find(item=>item.awardName===awardName); next[row.attemptId] = { attemptId: row.attemptId, awardName, awardIcon:category?.icon||'trophy', rankingGroupName: row.rankingGroupName }; }
       return next;
     });
   }
 
   if (resource.loading && !state) return <Loading />;
   if (resource.error && !state) return <section className="panel assignment-section"><Notice>{resource.error}</Notice></section>;
+  if (!can('operate')) return <div className="assignment-workspace"><div className="notice" role="status">Quyền Duyệt chỉ xem kết quả cuộc thi.</div><CompetitionResultsPanel competitionId={competitionId} revision={revision} /></div>;
   const proposedTie = proposalRows.some(item => item.boundaryTie);
   const byAttempt = new Map(proposalRows.map(item => [item.attemptId, item]));
   return <div className="assignment-workspace">
-    <Notice>{error || resource.error}</Notice><Notice kind="success">{notice}</Notice>
+    <Notice>{error || resource.error || awardCatalog.error}</Notice><Notice kind="success">{notice}</Notice>
     <section className="panel assignment-section award-review-panel">
       <div className="assignment-section-heading"><div><span className="eyebrow">XÉT GIẢ</span><h2>{state?.status === 'Published' ? 'Danh sách giải đã công bố' : state?.status === 'Approved' ? 'Danh sách giải đã duyệt' : 'Cấu hình giải và lập danh sách dự kiến'}</h2><p>Thứ hạng lấy từ bảng kết quả theo nhóm xếp hạng đã cấu hình.</p></div><span className="competition-status">{state?.status === 'Published' ? 'Đã công bố' : state?.status === 'Approved' ? 'Đã duyệt' : 'Dự kiến'}</span></div>
       <div className="assignment-award-settings">
         <label className="assignment-results-tiebreak"><input type="checkbox" checked={individualScoresPublished} onChange={event => setIndividualScoresPublished(event.target.checked)} disabled={Boolean(busy) || locked} /><span>Công bố điểm cá nhân cho thí sinh</span></label>
         <form className="assignment-award-category-form" onSubmit={addCategory}>
           <label>Nhóm xếp hạng<select value={newGroup} onChange={event => setNewGroup(event.target.value)} disabled={Boolean(busy) || locked}><option value="">Chọn nhóm</option>{asList(state?.results).map(row => row.rankingGroupName).filter((value, index, values) => value && values.indexOf(value) === index).map(group => <option key={group}>{group}</option>)}</select></label>
-          <label>Tên giải<input value={newAwardName} maxLength="100" onChange={event => setNewAwardName(event.target.value)} disabled={Boolean(busy) || locked} placeholder="Giải Nhất" /></label>
+          <label>Danh mục giải<select value={newAwardName} onChange={event=>setNewAwardName(event.target.value)} disabled={Boolean(busy)||locked||awardCatalog.loading}><option value="">{awardCatalog.loading?'Đang tải giải…':'Chọn giải'}</option>{asList(awardCatalog.data).map(icon=><option key={icon.id} value={icon.name}>{icon.name}</option>)}</select></label>
           <label>Số lượng<input type="number" min="1" max="1000" value={newQuantity} onChange={event => setNewQuantity(event.target.value)} disabled={Boolean(busy) || locked} /></label>
           <button className="button button-secondary" type="submit" disabled={Boolean(busy) || locked}>Thêm hạng giải</button>
         </form>
-        {categories.length > 0 && <div className="assignment-award-categories">{categories.map((category, index) => <div key={`${category.rankingGroupName}-${category.awardName}-${index}`}><strong>{category.awardName}</strong><span>{category.rankingGroupName} · {category.quantity} giải</span><button type="button" className="text-button" disabled={Boolean(busy) || locked} onClick={() => setCategories(current => current.filter((_, itemIndex) => itemIndex !== index))}>Gỡ</button></div>)}</div>}
+        {categories.length > 0 && <div className="assignment-award-categories">{categories.map((category, index) => <div key={`${category.rankingGroupName}-${category.awardName}-${index}`}><strong><AwardIcon icon={category.icon}/> {category.awardName}</strong><span>{category.rankingGroupName} · {category.quantity} giải</span><button type="button" className="text-button" disabled={Boolean(busy) || locked} onClick={() => setCategories(current => current.filter((_, itemIndex) => itemIndex !== index))}>Gỡ</button></div>)}</div>}
         <label className="assignment-award-reason">Lý do nếu điều chỉnh danh sách so với bảng xếp hạng<textarea rows="2" maxLength="1000" value={adjustmentReason} onChange={event => setAdjustmentReason(event.target.value)} disabled={Boolean(busy) || locked} placeholder="Bắt buộc nếu thay đổi danh sách tự động" /></label>
         <div className="assignment-actions"><button type="button" className="button button-secondary" disabled={Boolean(busy) || locked || categories.length === 0} onClick={generateProposal}>{busy === 'proposal' ? 'Đang lập...' : 'Lập danh sách dự kiến'}</button><button type="button" className="button button-primary" disabled={Boolean(busy) || locked || !categories.length} onClick={saveDraft}>{busy === 'save' ? 'Đang lưu...' : 'Lưu danh sách dự kiến'}</button></div>
       </div>
@@ -407,18 +409,18 @@ export function AwardReviewWorkspace({ competitionId }) {
           return <tr key={row.attemptId ?? `${row.candidateCode}-${index}`}>
             <td>{row.rank ?? '—'}</td><td>{row.candidateCode}</td><td>{row.fullName}</td><td>{row.department || '—'}</td><td>{row.rankingGroupName || '—'}</td><td>{row.correctAnswersCount ?? '—'}</td><td>{elapsedTime(row.durationMilliseconds)}</td><td>{row.totalScore ?? '—'}</td>
             <td>{row.hadIncident ? <span className="assignment-award-warning">Có sự cố</span> : '—'}{tie && <span className="assignment-award-warning">Đồng hạng tại ngưỡng</span>}</td>
-            <td><select aria-label={`Giải dự kiến cho ${row.fullName || row.candidateCode}`} value={nominee?.awardName || ''} disabled={Boolean(busy) || locked || !row.isValid || !row.attemptId} onChange={event => updateNominee(row, event.target.value)}>
+            <td><span className="assignment-award-choice"><AwardIcon icon={nominee?.awardIcon||proposal?.awardIcon||awardNames(row.rankingGroupName).find(item=>item.awardName===nominee?.awardName)?.icon}/><select aria-label={`Giải dự kiến cho ${row.fullName || row.candidateCode}`} value={nominee?.awardName || ''} disabled={Boolean(busy) || locked || !row.isValid || !row.attemptId} onChange={event => updateNominee(row, event.target.value)}>
               <option value="">Không chọn</option>{awardNames(row.rankingGroupName).map(item => <option key={item.awardName} value={item.awardName}>{item.awardName}</option>)}
-            </select></td>
+            </select></span></td>
           </tr>;
         })}
       </tbody></table></div>}
       <label className="assignment-award-confirm"><input type="checkbox" checked={tieReviewConfirmed} onChange={event => setTieReviewConfirmed(event.target.checked)} disabled={Boolean(busy) || locked} />Đã rà soát và xử lý các trường hợp đồng hạng tại vị trí xét thưởng theo thể lệ</label>
       <label className="assignment-award-reason">Ghi chú duyệt<textarea rows="2" maxLength="1000" value={approvalReason} onChange={event => setApprovalReason(event.target.value)} disabled={Boolean(busy) || state?.status !== 'Draft'} /></label>
       <div className="assignment-actions">
-        <button type="button" className="button button-secondary" disabled={!can('approve') || Boolean(busy) || state?.status !== 'Draft' || !state?.revision} onClick={approve}>{busy === 'approve' ? 'Đang duyệt...' : 'Duyệt danh sách'}</button>
+        <button type="button" className="button button-secondary" disabled={!can('operate') || !can('approve') || Boolean(busy) || state?.status !== 'Draft' || !state?.revision} onClick={approve}>{busy === 'approve' ? 'Đang duyệt...' : 'Duyệt danh sách'}</button>
         <button type="button" className="button button-primary" disabled={!can('operate') || Boolean(busy) || state?.status !== 'Approved' || state?.competitionStatus === 'Draft'} onClick={publish}>{busy === 'publish' ? 'Đang công bố...' : 'Công bố danh sách đạt giải'}</button>
-        <button type="button" className="button button-secondary" disabled={Boolean(busy) || state?.status !== 'Published'} onClick={exportExcel}>{busy === 'export' ? 'Đang xuất...' : 'Xuất Excel'}</button>
+        {can('operate')&&<button type="button" className="button button-secondary" disabled={Boolean(busy) || state?.status !== 'Published'} onClick={exportExcel}>{busy === 'export' ? 'Đang xuất...' : 'Xuất Excel'}</button>}
         <button type="button" className="button assignment-button-danger" disabled={!can('operate') || Boolean(busy) || state?.competitionStatus !== 'Published' || state?.status !== 'Published'} onClick={endCompetition}>{busy === 'end' ? 'Đang kết thúc...' : 'Kết thúc cuộc thi'}</button>
       </div>
       {state?.approvedAtUtc && <p className="assignment-hint">Duyệt lúc <DateText value={state.approvedAtUtc} /> · mã người duyệt {state.approvedByUserId}</p>}
@@ -488,10 +490,13 @@ function CandidateAwardsPanel({ resource }) {
   if (resource.error || !resource.data) return null;
   const score = resource.data.individualScore;
   const awards = asList(resource.data.awards);
+  const attemptSummary = resource.data.attemptSummary;
   return <section className="candidate-awards" aria-label="Điểm và giải thưởng" data-testid="candidate-awards">
     <h3>Kết quả cá nhân</h3>
     {!resource.data.individualScorePublished ? <p>Điểm cá nhân chưa được Ban Tổ chức công bố.</p> : score ? <p>Tổng điểm <strong>{score.totalScore ?? '—'}</strong> · Hạng <strong>{score.rank ?? '—'}</strong></p> : <p>Chưa có lượt thi hợp lệ đã nộp để hiển thị điểm.</p>}
+    {attemptSummary && <div className="attempt-result-summary"><p>S&#7889; c&#226;u &#273;&#250;ng: <strong>{attemptSummary.correctAnswersCount}</strong></p><p>Th&#7901;i gian ho&#224;n th&#224;nh: <strong>{elapsedTime(attemptSummary.durationMilliseconds)}</strong></p></div>}
     <h3>Danh sách đạt giải</h3>
-    {!resource.data.awardsPublished ? <p>Danh sách đạt giải chưa được Ban Tổ chức công bố.</p> : !awards.length ? <p>Danh sách đã được công bố; chưa có thí sinh đạt giải.</p> : <div className="assignment-results-wrap"><table className="assignment-results-table"><thead><tr><th>Giải</th><th>Mã thí sinh</th><th>Họ tên</th><th>Bộ phận</th><th>Nhóm xếp hạng</th><th>Hạng</th></tr></thead><tbody>{awards.map((item, index) => <tr key={`${item.candidateCode}-${item.awardName}-${index}`}><td>{item.awardName}</td><td>{item.candidateCode}</td><td>{item.fullName}</td><td>{item.department || '—'}</td><td>{item.rankingGroupName}</td><td>{item.rank}</td></tr>)}</tbody></table></div>}
+    {!resource.data.awardsPublished ? <p>Danh sách đạt giải chưa được Ban Tổ chức công bố.</p> : !awards.length ? <p>Danh sách đã được công bố; chưa có thí sinh đạt giải.</p> : <div className="assignment-results-wrap"><table className="assignment-results-table"><thead><tr><th>Giải</th><th>Mã thí sinh</th><th>Họ tên</th><th>Bộ phận</th><th>Nhóm xếp hạng</th><th>Hạng</th></tr></thead><tbody>{awards.map((item, index) => <tr key={`${item.candidateCode}-${item.awardName}-${index}`}><td><AwardIcon icon={item.awardIcon}/> {item.awardName}</td><td>{item.candidateCode}</td><td>{item.fullName}</td><td>{item.department || '—'}</td><td>{item.rankingGroupName}</td><td>{item.rank}</td></tr>)}</tbody></table></div>}
   </section>;
 }
+

@@ -316,6 +316,18 @@ public sealed class CandidateAttemptsController(AppDbContext db, VietnamClock cl
                 item.IsMarked
             };
         }).ToList() : [];
+        int? correctAnswersCount = null;
+        long? durationMilliseconds = null;
+        if (status == "Submitted" && attempt.ExamVersion is not null)
+        {
+            using var snapshot = JsonDocument.Parse(attempt.ExamVersion.SnapshotJson);
+            var correctAnswers = snapshot.RootElement.GetProperty("questions").EnumerateArray()
+                .ToDictionary(question => question.GetProperty("id").GetInt32(), question => question.GetProperty("correctAnswer").GetString() ?? "");
+            correctAnswersCount = attempt.Questions.Count(answer => answer.Answer is not null
+                && correctAnswers.TryGetValue(answer.QuestionId, out var expected)
+                && string.Equals(answer.Answer, expected, StringComparison.OrdinalIgnoreCase));
+            durationMilliseconds = Math.Max(0L, (long)(attempt.SubmittedAtUtc!.Value - attempt.StartedAtUtc).TotalMilliseconds);
+        }
         return new
         {
             attemptId = attempt.Id,
@@ -327,6 +339,8 @@ public sealed class CandidateAttemptsController(AppDbContext db, VietnamClock cl
             remainingSeconds = status == "InProgress" ? Math.Max(0, (int)Math.Ceiling((attempt.DeadlineAtUtc - now).TotalSeconds)) : 0,
             answeredCount = attempt.Questions.Count(item => !string.IsNullOrEmpty(item.Answer)),
             totalQuestionCount = attempt.Questions.Count,
+            correctAnswersCount,
+            durationMilliseconds,
             questions
         };
     }

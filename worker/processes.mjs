@@ -2,17 +2,18 @@
 import {WORKFLOW_PERMISSIONS,hasAccess} from '../shared/access.mjs';
 import {PROCESS_DEFAULTS,normalizeProcess,processNameKey,processSignature,legacyProcessSteps,resolveProcessAccess} from '../shared/processes.mjs';
 export async function ensureProcessCatalog(db) {
- const state=await db.get('processState','catalog');if(state?.version===3)return;
+ const state=await db.get('processState','catalog');if(state?.version===4)return;
  const old=await db.all('processes'),catalog=old.map(p=>({...p,steps:[...p.steps]})),stamp=now();
  for(const preset of PROCESS_DEFAULTS){let p=catalog.find(p=>p.code===preset.code);if(!p){p={...preset,id:db.next('processes'),createdAtUtc:stamp,updatedAtUtc:stamp};catalog.push(p);}else Object.assign(p,preset,{updatedAtUtc:stamp});db.put('processes',p);}
  for(const raw of await db.all('users')){
   const resolved=Array.isArray(raw.processIds)?resolveProcessAccess(raw,old):raw;
   const scope=raw.role==='Organizer'?legacyProcessSteps(resolved):null;
-  const codes=raw.role==='Candidate'?['CANDIDATE']:[...(scope.includes('manageUsers')?['SYSTEM_ADMIN']:[]),...(scope.some(p=>p!=='manageUsers')?['ORGANIZER']:[])];
-  db.put('users',{...raw,processIds:codes.map(code=>catalog.find(p=>p.code===code).id),permissionScope:scope});
+  const preserved=Array.isArray(raw.processIds)?raw.processIds.filter(id=>{const p=old.find(item=>item.id===id);return p&&!['SYSTEM_ADMIN','ORGANIZER','REVIEWER','CANDIDATE'].includes(p.code);}):[];
+  const codes=raw.role==='Candidate'?['CANDIDATE']:[...(scope.includes('manageUsers')?['SYSTEM_ADMIN']:[]),...(scope.some(p=>['draft','submit','operate'].includes(p))?['ORGANIZER']:[]),...(scope.includes('approve')?['REVIEWER']:[])];
+  db.put('users',{...raw,processIds:[...new Set([...preserved,...codes.map(code=>catalog.find(p=>p.code===code).id)])],permissionScope:scope});
  }
  for(const p of old)if(['EDITORIAL','REVIEW_OPERATE','REVIEW','OPERATE','USERS','ADMIN'].includes(p.code)||p.code?.startsWith('LEGACY_'))db.remove('processes',p.id);
- db.put('processState',{id:'catalog',initialized:true,version:3,initializedAtUtc:stamp});
+ db.put('processState',{id:'catalog',initialized:true,version:4,initializedAtUtc:stamp});
  ensure(db.writes.size<=449,'Dữ liệu cần chia lô để chuyển sang quy trình.',409);
 }
 export async function hydrateProcessAccess(db,user) {

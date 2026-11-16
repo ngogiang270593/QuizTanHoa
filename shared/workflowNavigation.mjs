@@ -16,7 +16,7 @@ export function workflowSections(user) {
 export const isWorkflowPath=path=>[EDITORIAL_PATH,DELIVERY_PATH,OPERATIONS_PATH,RESULTS_PATH,APPROVED_PATH].includes(path);
 export function canOpenWorkflow(user,path) {
  const sections=workflowSections(user);
- return path===EDITORIAL_PATH?sections.includes('editorial'):[DELIVERY_PATH,APPROVED_PATH].includes(path)?sections.includes('delivery'):[OPERATIONS_PATH,RESULTS_PATH].includes(path)?hasAccess(user,'operate'):false;
+ return path===EDITORIAL_PATH?sections.includes('editorial'):[DELIVERY_PATH,APPROVED_PATH].includes(path)?sections.includes('delivery'):path===RESULTS_PATH?hasAccess(user,'approve')||hasAccess(user,'operate'):path===OPERATIONS_PATH?hasAccess(user,'operate'):false;
 }
 export const reviewState=exam=>exam.isApproved?'Approved':exam.reviewStatus||'Draft';
 export function operationStep(competition,at) {

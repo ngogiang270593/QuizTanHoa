@@ -42,7 +42,7 @@ public static class AssignmentRules
                 || exam.GetProperty("competitionId").GetInt32() != assignment.CompetitionId) return null;
             return new AssignedExamMetadata(exam.GetProperty("id").GetInt32(), exam.GetProperty("name").GetString() ?? "",
                 exam.TryGetProperty("fieldGroupName", out var group) ? group.GetString() : null,
-                exam.GetProperty("durationMinutes").GetInt32(), exam.GetProperty("targetQuestionCount").GetInt32(),
+                assignment.Competition?.DurationMinutes ?? exam.GetProperty("durationMinutes").GetInt32(), exam.GetProperty("targetQuestionCount").GetInt32(),
                 version.Id, version.VersionNumber, exam.TryGetProperty("isDemo", out var demo) && demo.GetBoolean());
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException or KeyNotFoundException or FormatException) { return null; }

@@ -22,6 +22,10 @@ public sealed class ExamReviewController(AppDbContext db) : ControllerBase
         await using var transaction = await db.Database.BeginTransactionAsync();
         var exam = await db.Exams.Include(e => e.Questions).SingleOrDefaultAsync(e => e.Id == examId && e.CompetitionId == competitionId);
         if (exam is null) return NotFound();
+        var competition = await db.Competitions.SingleOrDefaultAsync(item => item.Id == competitionId);
+        if (competition is null) return NotFound();
+        if (!AssignmentRules.ValidSchedule(competition)) return BadRequest(new { message = "Can tao lich thi hop le truoc khi trinh duyet." });
+        if (!await db.CompetitionAssignments.AnyAsync(item => item.CompetitionId == competitionId)) return BadRequest(new { message = "Can phan cong thi truoc khi trinh duyet." });
         var errors = ExamRules.Validate(exam);
         if (errors.Count > 0) return BadRequest(new { message = "Đề chưa đủ điều kiện gửi duyệt.", errors });
         if (exam.ReviewStatus == "PendingReview" || await db.ApprovedExamVersions.AnyAsync(v => v.ExamId == examId && v.DraftRevision == exam.DraftRevision)) return Conflict(new { message = "Đề đã duyệt hoặc đang chờ duyệt." });

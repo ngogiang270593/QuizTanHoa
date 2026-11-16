@@ -20,6 +20,7 @@ public sealed class Competition
     public User? CreatedByUser { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
+    public int? DurationMinutes { get; set; }
     public DateTime? OpensAtUtc { get; set; }
     public DateTime? StartDeadlineUtc { get; set; }
     public DateTime? ClosesAtUtc { get; set; }

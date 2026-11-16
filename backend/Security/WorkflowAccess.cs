@@ -39,9 +39,9 @@ public static class WorkflowAccess
         if (resource == "question-bank") return write ? ["draft"] : ["draft", "approve", "submit"];
         if (resource != "competitions") return null;
         if (parts.Length <= 4) return write ? ["draft"] : ["draft", "submit", "approve", "operate"];
-        if (sub == "results" && !write) return ["operate", "approve"];
+        if (sub == "results" && !write) return parts.Contains("excel") ? ["operate"] : ["operate", "approve"];
         if (sub is "schedule" or "assignments" or "assignment-options" or "publication" or "publish" or "end" or "results") return ["operate"];
-        if (sub == "awards") return parts.Contains("approve") ? ["approve"] : write ? ["operate"] : ["operate", "approve"];
+        if (sub == "awards") return write ? ["operate"] : parts.Contains("excel") ? ["operate"] : ["operate", "approve"];
         if (sub == "field-groups") return write ? ["draft"] : ["draft", "submit", "approve", "operate"];
         if (sub == "exams")
         {

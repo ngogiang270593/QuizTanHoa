@@ -38,6 +38,7 @@ public sealed class QuestionWriteRequest
 
 public sealed class ScheduleWriteRequest
 {
+    [Range(1, 480)] public int? DurationMinutes { get; set; }
     public string? OpensAtLocal { get; set; }
     public string? StartDeadlineLocal { get; set; }
     public string? ClosesAtLocal { get; set; }

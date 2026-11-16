@@ -9,13 +9,15 @@ import {workflowOverview} from './workflows.mjs';
 import {topicsRoute} from './topicCatalog.mjs';
 import {selectTopicQuestions} from './topics.mjs';
 import {assignmentRoute} from './attempts.mjs';
-import {systemAdminRoute} from './systemAdmin.mjs';
+import {systemAdminRoute,deleteCompetitionBatch,awardCatalogRoute} from './systemAdmin.mjs';
 import {resultsRoute} from './results.mjs';
 
 export async function organizerRoute(ctx) {
   const {db,body,method,parts,user,env}=ctx;
   const auditAccount=(account,action)=>db.put('accessEvents',{id:db.next('accessEvents'),userId:account.id,actorUserId:user.id,actorName:user.fullName||user.username,action,occurredAtUtc:now()});
   if(parts[1]!=='organizer')return;
+  if(parts[2]==='award-catalog')return await awardCatalogRoute(ctx);
+  if(parts[2]==='system')return await systemAdminRoute(ctx);
   if(['system-summary','activity'].includes(parts[2]))return systemAdminRoute(ctx);
   if(parts[2]==='processes')return processesRoute(ctx);
   if(parts[2]==='workflows'&&method==='GET')return workflowOverview(ctx);
@@ -85,7 +87,7 @@ export async function organizerRoute(ctx) {
       const bank=await db.all('bank');selected=initial.questionIds.map(id=>bank.find(q=>q.id===id&&q.isActive));
       ensure(selected.every(Boolean),'Một hoặc nhiều câu hỏi không còn hoạt động trong ngân hàng.');
     }
-    const competition={id:db.next('competitions'),name:text(body.name,300,true),description:text(body.description,5000),rules:text(body.rules,20000),status:'Draft',isDemo:user.isDemo,createdByUserId:user.id,createdAtUtc:now(),updatedAtUtc:now(),opensAtUtc:null,startDeadlineUtc:null,closesAtUtc:null,publishedAtUtc:null};db.put('competitions',competition);
+    const competition={id:db.next('competitions'),name:text(body.name,300,true),description:text(body.description,5000),rules:text(body.rules,20000),status:'Draft',isDemo:user.isDemo,createdByUserId:user.id,createdAtUtc:now(),updatedAtUtc:now(),opensAtUtc:null,startDeadlineUtc:null,closesAtUtc:null,publishedAtUtc:null,durationMinutes:null};db.put('competitions',competition);
     for(const name of ['Kiến thức chung','Kinh tế và hạ tầng','Đất đai và môi trường','Tài chính','Hành chính và tư pháp','Văn hóa và xã hội'])db.put('groups',{id:db.next('groups'),competitionId:competition.id,name,rankingGroupName:name,isSample:true});
     let initialExamId=null;
     if(initial) {
@@ -97,16 +99,12 @@ export async function organizerRoute(ctx) {
     return json({...competitionProfile(competition),initialExamId,initialQuestionCount:selected.length},201);
   }
   const competition=await db.get('competitions',cid);ensure(competition,'Không tìm thấy cuộc thi.',404);
+  ensure(competition.status!=='Deleting'||method==='DELETE','Cuộc thi đang được quản trị viên xóa.',409);
   if(parts.length===4) {
     if(method==='GET')return json(competitionProfile(competition));
     if(method==='PUT'){Object.assign(competition,{name:text(body.name,300,true),description:text(body.description,5000),rules:text(body.rules,20000),updatedAtUtc:now()});db.put('competitions',competition);return json(competitionProfile(competition));}
     if(method==='DELETE') {
-      ensure(competition.status==='Draft','Chỉ có thể xóa cuộc thi đang ở trạng thái nháp.',409);
-      ensure(!(await db.all('attempts','competitionId',cid)).length,'Không thể xóa cuộc thi đã có lượt thi.',409);
-      const exams=await db.all('exams','competitionId',cid),ids=new Set(exams.map(e=>e.id));
-      for(const table of ['groups','assignments','versions','versionChunks','awardPlans','awardEvents','reviewEvents'])for(const row of await db.all(table,'competitionId',cid))db.remove(table,row.id);
-      for(const q of await db.all('questions'))if(ids.has(q.examId))db.remove('questions',q.id);
-      for(const e of exams)db.remove('exams',e.id);db.remove('competitions',cid);return json(null,204);
+      return await deleteCompetitionBatch(ctx,cid,{draftOnly:true});
     }
   }
   return await contentRoute(ctx,competition) || await assignmentRoute(ctx,competition) || await resultsRoute(ctx,competition);

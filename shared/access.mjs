@@ -6,7 +6,7 @@ export const ACCESS_PRESETS = {
  Operator:{label:'Tổ chức thi',role:'Organizer',permissions:['operate']},
  Candidate:{label:'Thí sinh',role:'Candidate',permissions:[]},
 };
-export const ACCESS_LABELS={draft:'Soạn nháp',submit:'Gửi duyệt / rút về',approve:'Duyệt / trả lại',operate:'Tổ chức thi và kết quả',manageUsers:'Quản lý tài khoản và cấp quyền'};
+export const ACCESS_LABELS={draft:'Soạn nháp',submit:'Gửi duyệt / rút về',approve:'Duyệt / trả lại và xem kết quả',operate:'Tổ chức thi và xem kết quả',manageUsers:'Quản lý tài khoản và cấp quyền'};
 export function workflowPermissions(user) {
  if(user?.role!=='Organizer')return [];
  if(user.workflowPermissions===undefined)return [...WORKFLOW_PERMISSIONS];
@@ -21,6 +21,8 @@ export function accessLabel(user) {
 export function requiredAccess(parts,method) {
  if(parts[1]!=='organizer')return null;
  const write=!['GET','HEAD','OPTIONS'].includes(method),resource=parts[2],sub=parts[4],action=parts[6];
+ if(resource==='system')return 'manageUsers';
+ if(resource==='award-catalog')return write?'manageUsers':['operate','approve','manageUsers'];
  if(['system-summary','activity'].includes(resource))return 'manageUsers';
  if(resource==='processes')return 'manageUsers';
  if(resource==='organization-units')return write?'manageUsers':null;
@@ -30,7 +32,7 @@ export function requiredAccess(parts,method) {
  if(resource==='question-bank')return write?'draft':['draft','approve','submit'];
  if(resource!=='competitions')return null;
  if(parts.length<=4)return write?'draft':['draft','submit','approve','operate'];
- if(sub==='results'&&!write)return ['operate','approve'];
+ if(sub==='results'&&!write)return parts.includes('excel')?'operate':['operate','approve'];
  if(['schedule','assignments','assignment-options','publication','publish','end','results'].includes(sub))return 'operate';
  if(sub==='awards')return parts.includes('approve')?'approve':write?'operate':['operate','approve'];
  if(sub==='field-groups')return write?'draft':['draft','submit','approve','operate'];

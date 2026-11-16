@@ -40,19 +40,20 @@ export async function competitionResults(db,c) {
   assignRanks(rows);rows.sort((a,b)=>a.rankingGroupName.localeCompare(b.rankingGroupName,'vi')||(a.rank??Infinity)-(b.rank??Infinity)||a.candidateCode.localeCompare(b.candidateCode));
   return {competitionId:c.id,competitionName:c.name,rankingGroups:[...new Set(rows.map(r=>r.rankingGroupName).filter(Boolean))].sort(),rows};
 }
-const nominee=(row,awardName,boundaryTie=false)=>({...pick(row,['attemptId','candidateCode','fullName','department','fieldGroupName','rankingGroupName','rank','commonScore','specializedScore','scenarioScore','totalScore','submittedAtUtc','hadIncident']),awardName,boundaryTie});
+const nominee=(row,awardName,boundaryTie=false,awardIcon='trophy')=>({...pick(row,['attemptId','candidateCode','fullName','department','fieldGroupName','rankingGroupName','rank','commonScore','specializedScore','scenarioScore','totalScore','submittedAtUtc','hadIncident']),awardName,awardIcon,boundaryTie});
 export function proposal(categories,rows) {
   const groups=new Map(),nominees=[];
   for(const category of categories){const k=category.rankingGroupName.toLowerCase();if(!groups.has(k))groups.set(k,[]);groups.get(k).push(category);}
   for(const [key,cats] of groups){const ranked=rows.filter(r=>r.isValid&&r.rank&&r.rankingGroupName.toLowerCase()===key).sort((a,b)=>a.rank-b.rank||a.candidateCode.localeCompare(b.candidateCode));let offset=0;
-    for(const category of cats){let selected=ranked.slice(offset,offset+category.quantity);if(!selected.length)continue;const boundary=selected.at(-1).rank,tie=ranked.filter(r=>r.rank===boundary).length>1;while(offset+selected.length<ranked.length&&ranked[offset+selected.length].rank===boundary)selected.push(ranked[offset+selected.length]);nominees.push(...selected.map(r=>nominee(r,category.awardName,tie)));offset+=selected.length;}
+    for(const category of cats){let selected=ranked.slice(offset,offset+category.quantity);if(!selected.length)continue;const boundary=selected.at(-1).rank,tie=ranked.filter(r=>r.rank===boundary).length>1;while(offset+selected.length<ranked.length&&ranked[offset+selected.length].rank===boundary)selected.push(ranked[offset+selected.length]);nominees.push(...selected.map(r=>nominee(r,category.awardName,tie,category.icon)));offset+=selected.length;}
   }
   return nominees;
 }
 const fingerprint=async rows=>sha256(JSON.stringify(rows.filter(r=>r.isValid).sort((a,b)=>a.attemptId-b.attemptId)));
 function categoriesInput(value,groups) {
   ensure(Array.isArray(value)&&value.length>0&&value.length<=100,'Cấu hình cần có từ 1 đến 100 hạng giải.');
-  const categories=value.map(c=>({rankingGroupName:text(c?.rankingGroupName,200,true),awardName:text(c?.awardName,100,true),quantity:integer(c?.quantity,1,1000)}));
+  const icons=new Set(['trophy','gold','silver','bronze','medal','star','sparkle','rosette','first','second','third']);
+  const categories=value.map(c=>({rankingGroupName:text(c?.rankingGroupName,200,true),awardName:text(c?.awardName,100,true),icon:icons.has(c?.icon)?c.icon:'trophy',quantity:integer(c?.quantity,1,1000)}));
   ensure(new Set(categories.map(c=>`${c.rankingGroupName}|${c.awardName}`.toLowerCase())).size===categories.length,'Tên giải bị trùng trong cùng nhóm.');
   if(groups)ensure(categories.every(c=>groups.some(g=>g.toLowerCase()===c.rankingGroupName.toLowerCase())),'Một hoặc nhiều nhóm xếp hạng không thuộc cuộc thi.');return categories;
 }
@@ -64,17 +65,36 @@ async function awardsProfile(db,c,result) {
 }
 export async function candidateAwards(ctx,cid) {
   const plan=await ctx.db.get('awardPlans',cid),doc=(['Approved','Published'].includes(plan?.status)?plan.approved:plan?.draft)||{},published=plan?.status==='Published'&&!!plan.approved;
-  let score=null;
-  if(doc.individualScoresPublished) {const c=await ctx.db.get('competitions',cid),results=await competitionResults(ctx.db,c),row=results.rows.find(r=>r.isValid&&r.candidateCode===ctx.user.username);if(row)score=pick(row,['rank','commonScore','specializedScore','scenarioScore','totalScore','submittedAtUtc']);}
-  return {individualScorePublished:!!doc.individualScoresPublished,individualScore:score,awardsPublished:published,awards:published?plan.approved.nominees.map(n=>pick(n,['awardName','candidateCode','fullName','department','fieldGroupName','rankingGroupName','rank'])):[]};
+  const c=await ctx.db.get('competitions',cid),results=await competitionResults(ctx.db,c),row=results.rows.find(r=>r.isValid&&r.candidateCode===ctx.user.username);
+  const attemptSummary=row?pick(row,['correctAnswersCount','durationMilliseconds','submittedAtUtc']):null;
+  const score=doc.individualScoresPublished&&row?pick(row,['rank','commonScore','specializedScore','scenarioScore','totalScore','submittedAtUtc']):null;
+  return {individualScorePublished:!!doc.individualScoresPublished,individualScore:score,attemptSummary,awardsPublished:published,awards:published?plan.approved.nominees.map(n=>pick(n,['awardName','awardIcon','candidateCode','fullName','department','fieldGroupName','rankingGroupName','rank'])):[]};
 }
+
+
 export async function resultsRoute(ctx,c) {
   const {db,parts,method,body,url,user}=ctx,action=parts[4],sub=parts[5];
   if(!['results','awards','end'].includes(action))return;
+  if(action==='awards'&&sub==='structure') {
+    const saved=await db.get('awardStructures',c.id);
+    if(method==='GET')return json({competitionId:c.id,status:c.status,awards:saved?.awards||[],updatedAtUtc:saved?.updatedAtUtc||null});
+    if(method==='PUT') {
+      ensure(c.status==='Draft','Chỉ có thể thay đổi cơ cấu giải khi cuộc thi còn ở trạng thái nháp.',409);
+      ensure(Array.isArray(body.awards)&&body.awards.length>0&&body.awards.length<=50,'Cần tạo từ 1 đến 50 giải.');
+      const awards=body.awards.map(item=>({name:text(item?.name,100,true),amount:Number(item?.amount)}));
+      ensure(awards.every(item=>item.name&&Number.isFinite(item.amount)&&item.amount>=0&&item.amount<=100000000000),'Tên giải và số tiền không hợp lệ.');
+      ensure(new Set(awards.map(item=>item.name.toLocaleLowerCase('vi'))).size===awards.length,'Tên giải không được trùng nhau.');
+      const record={id:c.id,competitionId:c.id,awards,updatedAtUtc:now(),updatedByUserId:user.id};db.put('awardStructures',record);
+      return json({competitionId:c.id,status:c.status,awards:record.awards,updatedAtUtc:record.updatedAtUtc});
+    }
+  }
   const result=await competitionResults(db,c);
   if(action==='results'&&method==='GET') {
     const group=url.searchParams.get('rankingGroupName');if(group){ensure(result.rankingGroups.some(g=>g.toLowerCase()===group.trim().toLowerCase()),'Nhóm xếp hạng không thuộc cuộc thi.');result.rows=result.rows.filter(r=>r.rankingGroupName.toLowerCase()===group.trim().toLowerCase());}
     if(sub==='excel')return workbookResponse([['Thứ hạng','Mã thí sinh','Họ tên','Bộ phận','Nhóm đề','Nhóm xếp hạng','Số câu đúng','Thời gian làm bài (giây)','Điểm chung','Điểm chuyên môn','Điểm tình huống','Tổng điểm','Thời điểm nộp (UTC)','Trạng thái lượt thi','Hợp lệ'],...result.rows.map(r=>[r.rank,r.candidateCode,r.fullName,r.department,r.fieldGroupName,r.rankingGroupName,r.correctAnswersCount,r.durationMilliseconds==null?null:r.durationMilliseconds/1000,r.commonScore,r.specializedScore,r.scenarioScore,r.totalScore,r.submittedAtUtc,r.attemptStatus,r.isValid?'Có':'Không'])],`KetQua_${c.id}.xlsx`,'KetQua');
+    const plan=await db.get('awardPlans',c.id),awardDoc=(['Approved','Published'].includes(plan?.status)?plan.approved:plan?.draft)||{};
+    const awardsByAttempt=new Map((awardDoc.nominees||[]).map(n=>[n.attemptId,n]));
+    result.rows=result.rows.map(row=>{const award=awardsByAttempt.get(row.attemptId);return award?{...row,awardName:award.awardName,awardIcon:award.awardIcon||'trophy'}:row;});
     return json(result);
   }
   let plan=await db.get('awardPlans',c.id);
@@ -99,7 +119,7 @@ export async function resultsRoute(ctx,c) {
     const proposed=proposal(categories,result.rows),nominees=body.nominees.map(input=>{
       const row=result.rows.find(r=>r.attemptId===input.attemptId&&r.isValid&&r.rank&&r.rankingGroupName.toLowerCase()===input.rankingGroupName?.trim().toLowerCase());
       const category=categories.find(c=>c.rankingGroupName.toLowerCase()===input.rankingGroupName?.trim().toLowerCase()&&c.awardName.toLowerCase()===input.awardName?.trim().toLowerCase());
-      ensure(row&&category,'Chỉ lượt đã nộp, hợp lệ và thuộc đúng nhóm/hạng giải mới được chọn.');return nominee(row,category.awardName,proposed.some(n=>n.attemptId===row.attemptId&&n.boundaryTie));
+      ensure(row&&category,'Chỉ lượt đã nộp, hợp lệ và thuộc đúng nhóm/hạng giải mới được chọn.');return nominee(row,category.awardName,proposed.some(n=>n.attemptId===row.attemptId&&n.boundaryTie),category.icon);
     });
     const key=items=>JSON.stringify(items.map(n=>`${n.attemptId}|${n.awardName.toLowerCase()}`).sort()),same=key(nominees)===key(proposed),reason=text(body.adjustmentReason,1000);
     ensure(same||reason,'Cần ghi lý do khi điều chỉnh danh sách dự kiến so với bảng xếp hạng.');

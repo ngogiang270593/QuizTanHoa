@@ -24,6 +24,7 @@
 .assignment-award-warning{display:inline-block;margin:2px 6px 2px 0;padding:3px 7px;border-radius:5px;background:#fff2df;color:#8a5412;font-size:12px}
 .assignment-award-audit{margin-top:20px;color:#405f71}
 .assignment-award-audit ul{padding-left:22px}
+.award-icon-image{width:28px;height:28px;object-fit:contain;vertical-align:middle;display:inline-block}.assignment-award-choice{display:flex;align-items:center;gap:8px}.assignment-award-choice .award-icon-image{width:34px;height:34px;flex-shrink:0}.assignment-award-choice select{min-width:170px}
 .candidate-awards{display:grid;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid #e1e8ec}
 .candidate-awards h3{margin:0;color:#2b495d;font-size:18px}
 .candidate-awards p{margin:0;color:#526b7a;line-height:1.7}

@@ -45,7 +45,8 @@ public static class ProcessAccess
   if(migrate){
    (string Code,string Name,string Role,string[] Steps,string Description)[] defaults=[
     ("SYSTEM_ADMIN","Quản trị hệ thống","Organizer",["manageUsers"],"Tài khoản, phân quyền, danh mục và nhật ký hệ thống."),
-    ("ORGANIZER","Biên tập – Duyệt","Organizer",["draft","submit","approve","operate"],"Nháp → Chờ duyệt → Đã duyệt → Công khai. Duyệt và trả lại có ghi chú."),
+    ("ORGANIZER","Biên tập và tổ chức thi","Organizer",["draft","submit","operate"],"Biên tập đề, gửi duyệt, tổ chức thi và xem kết quả cuộc thi."),
+    ("REVIEWER","Duyệt đề","Organizer",["approve"],"Duyệt hoặc trả lại đề; xem kết quả cuộc thi ở chế độ chỉ đọc."),
     ("CANDIDATE","Thi","Candidate",["takeExam"],"Vào cuộc thi được phân công, làm và nộp bài theo lịch.")];
    foreach(var item in defaults){var p=await db.AccessProcesses.SingleOrDefaultAsync(p=>p.Code==item.Code);if(p is null){p=new AccessProcess{Code=item.Code,CreatedAtUtc=DateTime.UtcNow};db.AccessProcesses.Add(p);}p.Name=item.Name;p.NameKey=Key(item.Name);p.Role=item.Role;p.StepsJson=JsonSerializer.Serialize(item.Steps);p.Description=item.Description;p.UpdatedAtUtc=DateTime.UtcNow;}
    await db.SaveChangesAsync();
@@ -53,7 +54,19 @@ public static class ProcessAccess
    db.AppSettings.Add(new AppSetting{Key="ProcessCatalogV3",Value="true"});
   }
   var catalog=await db.AccessProcesses.ToListAsync();
-  foreach(var u in targets){var caps=rights[u.Id];var codes=u.Role==AppRoles.Candidate?new[]{"CANDIDATE"}:new[]{caps.Contains("manageUsers")?"SYSTEM_ADMIN":null,caps.Any(p=>p!="manageUsers")?"ORGANIZER":null}.Where(c=>c is not null).ToArray();u.ProcessIdsJson=JsonSerializer.Serialize(codes.Select(code=>catalog.Single(p=>p.Code==code).Id));u.PermissionScopeJson=u.Role==AppRoles.Organizer?JsonSerializer.Serialize(caps):null;}
+  foreach(var u in targets){var caps=rights[u.Id];var codes=u.Role==AppRoles.Candidate?new[]{"CANDIDATE"}:new[]{caps.Contains("manageUsers")?"SYSTEM_ADMIN":null,caps.Any(p=>new[]{"draft","submit","operate"}.Contains(p))?"ORGANIZER":null,caps.Contains("approve")?"REVIEWER":null}.Where(c=>c is not null).ToArray();u.ProcessIdsJson=JsonSerializer.Serialize(codes.Select(code=>catalog.Single(p=>p.Code==code).Id));u.PermissionScopeJson=u.Role==AppRoles.Organizer?JsonSerializer.Serialize(caps):null;}
   await db.SaveChangesAsync();await transaction.CommitAsync();
- }
+   if(!await db.AppSettings.AnyAsync(s=>s.Key=="ProcessCatalogV4"))
+  {
+   await using var tx=await db.Database.BeginTransactionAsync();
+    var v4Catalog=await db.AccessProcesses.ToListAsync();var v4Users=await db.Users.ToListAsync();var v4Rights=new Dictionary<int,string[]>();
+    foreach(var u in v4Users){if(u.ProcessIdsJson is not null)Resolve(u,v4Catalog);v4Rights[u.Id]=WorkflowAccess.Permissions(u);}
+    var editorial=v4Catalog.SingleOrDefault(p=>p.Code=="ORGANIZER");if(editorial is not null){editorial.Name="Biên tập và tổ chức thi";editorial.NameKey=Key(editorial.Name);editorial.StepsJson=JsonSerializer.Serialize(new[]{"draft","submit","operate"});editorial.Description="Biên tập đề, gửi duyệt, tổ chức thi và xem kết quả cuộc thi.";editorial.UpdatedAtUtc=DateTime.UtcNow;}
+    var reviewer=v4Catalog.SingleOrDefault(p=>p.Code=="REVIEWER");if(reviewer is null){reviewer=new AccessProcess{Code="REVIEWER",CreatedAtUtc=DateTime.UtcNow};db.AccessProcesses.Add(reviewer);}
+   reviewer.Name="Duyệt đề";reviewer.NameKey=Key(reviewer.Name);reviewer.Role=AppRoles.Organizer;reviewer.StepsJson=JsonSerializer.Serialize(new[]{"approve"});reviewer.Description="Duyệt hoặc trả lại đề; xem kết quả cuộc thi ở chế độ chỉ đọc.";reviewer.UpdatedAtUtc=DateTime.UtcNow;
+   await db.SaveChangesAsync();
+    foreach(var u in v4Users){if(u.Role!=AppRoles.Organizer||!v4Rights[u.Id].Contains("approve"))continue;var ids=Ids(u).ToList();if(!ids.Contains(reviewer.Id)){ids.Add(reviewer.Id);u.ProcessIdsJson=JsonSerializer.Serialize(ids);}}
+   db.AppSettings.Add(new AppSetting{Key="ProcessCatalogV4",Value="true"});await db.SaveChangesAsync();await tx.CommitAsync();
+   }
+  }
 }

@@ -34,6 +34,7 @@ public sealed class CompetitionScheduleController(AppDbContext db, VietnamClock 
         if (closes <= opens) ModelState.AddModelError("closesAtLocal", "Ngày giờ đóng thi phải sau ngày giờ mở thi.");
         if (deadline > closes) ModelState.AddModelError("closesAtLocal", "Ngày giờ đóng thi không được sớm hơn hạn bắt đầu.");
         if (!ModelState.IsValid) return ValidationProblem(ModelState);
+        if (request.DurationMinutes.HasValue) competition.DurationMinutes = request.DurationMinutes.Value;
         competition.OpensAtUtc = opens;
         competition.StartDeadlineUtc = deadline;
         competition.ClosesAtUtc = closes;
@@ -64,14 +65,19 @@ public sealed class CompetitionScheduleController(AppDbContext db, VietnamClock 
         var exams = await db.Exams.AsNoTracking().Where(exam => exam.CompetitionId == competition.Id).ToListAsync();
         var available = competition.StartDeadlineUtc.HasValue && competition.ClosesAtUtc.HasValue
             ? (competition.ClosesAtUtc.Value - competition.StartDeadlineUtc.Value).TotalMinutes : (double?)null;
-        var warnings = exams.Where(exam => available.HasValue && exam.DurationMinutes > available.Value).Select(exam => new
-        {
-            examId = exam.Id, examName = exam.Name, durationMinutes = exam.DurationMinutes,
-            availableMinutes = Math.Max(0, available!.Value),
-            message = $"Đề “{exam.Name}” có thời lượng {exam.DurationMinutes} phút. Người bắt đầu sát hạn chỉ còn khoảng {Math.Max(0, available!.Value):0.##} phút trước giờ đóng thi."
-        }).ToList();
+        object[] warnings = competition.DurationMinutes is int duration && available.HasValue
+            ? duration > available.Value
+                ? [new { examId = (int?)null, examName = "Thoi luong chung", durationMinutes = duration, availableMinutes = Math.Max(0, available.Value), message = $"Thoi luong {duration} phut dai hon thoi gian con lai cho nguoi bat dau sat han ({Math.Max(0, available.Value):0.##} ph?t)." }]
+                : []
+            : exams.Where(exam => available.HasValue && exam.DurationMinutes > available.Value).Select(exam => (object)new
+            {
+                examId = (int?)exam.Id, examName = exam.Name, durationMinutes = exam.DurationMinutes,
+                availableMinutes = Math.Max(0, available!.Value),
+                message = $"De {exam.Name} co thoi luong {exam.DurationMinutes} phut. Nguoi bat dau sat han chi con {Math.Max(0, available!.Value):0.##} phut truoc gio dong thi."
+            }).ToArray();
         return new
         {
+            durationMinutes = competition.DurationMinutes,
             opensAtLocal = Local(competition.OpensAtUtc), startDeadlineLocal = Local(competition.StartDeadlineUtc), closesAtLocal = Local(competition.ClosesAtUtc),
             opensAtUtc = CompetitionResponse.Utc(competition.OpensAtUtc), startDeadlineUtc = CompetitionResponse.Utc(competition.StartDeadlineUtc), closesAtUtc = CompetitionResponse.Utc(competition.ClosesAtUtc),
             timeZone = VietnamClock.TimeZoneId, warnings

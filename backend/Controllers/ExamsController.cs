@@ -94,7 +94,6 @@ public sealed class ExamsController(AppDbContext db) : ControllerBase
         var existing = await db.ApprovedExamVersions.AsNoTracking().SingleOrDefaultAsync(version => version.ExamId == exam.Id && version.DraftRevision == exam.DraftRevision);
         if (existing is not null) return Ok(ExamResponse.Version(existing));
         if (exam.ReviewStatus != "PendingReview" || exam.SubmittedRevision != exam.DraftRevision) return Conflict(new { message = "Đề phải được gửi chờ duyệt trước khi duyệt." });
-        if (exam.SubmittedByUserId == CurrentAccount.User(HttpContext).Id && !WorkflowAccess.Has(CurrentAccount.User(HttpContext), "manageUsers")) return StatusCode(403, new { message = "Người gửi không được tự duyệt đề của mình." });
         if (string.IsNullOrWhiteSpace(request?.Note)) return BadRequest(new { message = "Vui lòng nhập ghi chú duyệt." });
         var note = request.Note.Trim();
         var now = DateTime.UtcNow;
@@ -114,6 +113,8 @@ public sealed class ExamsController(AppDbContext db) : ControllerBase
             ApprovedAtUtc = now, ApprovedByUserId = CurrentAccount.User(HttpContext).Id
         };
         db.ApprovedExamVersions.Add(version); await db.SaveChangesAsync();
+        var provisionalAssignments = await db.CompetitionAssignments.Where(item => item.CompetitionId == competitionId && item.ExamId == exam.Id && item.ExamVersionId == null).ToListAsync();
+        foreach (var assignment in provisionalAssignments) assignment.ExamVersionId = version.Id;
         exam.CurrentApprovedVersionId = version.Id; exam.ReviewStatus = "Approved"; exam.ReviewNote = note;
         ExamReviewController.AddEvent(db, exam, CurrentAccount.User(HttpContext), "Approved", note); await db.SaveChangesAsync();
         await transaction.CommitAsync();

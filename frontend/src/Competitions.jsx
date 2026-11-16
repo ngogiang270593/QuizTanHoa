@@ -33,6 +33,26 @@ function ErrorNotice({ message, retry }) {
   return <div className="notice notice-error" role="alert"><span>{message}</span>{retry && <button type="button" className="text-button" onClick={retry}>Thử lại</button>}</div>;
 }
 
+function CompetitionDetailsDialog({ competition, can, navigate, onClose }) {
+  const dialog = useRef(null);
+  useEffect(() => {
+    const node = dialog.current, previous = document.activeElement;
+    node.showModal();
+    return () => {
+      if (node.open) node.close();
+      if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
+    };
+  }, []);
+  const go = path => { onClose(); navigate(path); };
+  return <dialog ref={dialog} className="competition-detail-dialog" aria-modal="true" aria-labelledby="competition-detail-title"
+    onCancel={event => { event.preventDefault(); onClose(); }}
+    onClick={event => { if (event.target !== dialog.current) return; const box = dialog.current.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) onClose(); }}>
+    <header className="competition-detail-header"><div><span className="eyebrow">CHI TIẾT CUỘC THI</span><h2 id="competition-detail-title">{competition.name}</h2></div><button type="button" className="button button-quiet" aria-label="Đóng chi tiết cuộc thi" onClick={onClose}>×</button></header>
+    <div className="competition-detail-body"><div className="competition-row-badges"><StatusBadge status={competition.status}/>{competition.isDemo&&<span className="demo-label">Dữ liệu minh họa</span>}</div><p className="competition-plain-text">{competition.description||'Chưa có mô tả.'}</p>{competition.rules&&<section><h3>Thể lệ</h3><p className="competition-plain-text">{competition.rules}</p></section>}<dl className="competition-detail-schedule"><div><dt>Mở thi</dt><dd>{formatDate(competition.opensAtUtc)}</dd></div><div><dt>Hạn bắt đầu</dt><dd>{formatDate(competition.startDeadlineUtc)}</dd></div><div><dt>Đóng thi</dt><dd>{formatDate(competition.closesAtUtc)}</dd></div></dl><small>Cập nhật: {formatDate(competition.updatedAtUtc)} · Múi giờ Việt Nam (UTC+7)</small></div>
+    <footer className="competition-detail-actions"><button type="button" className="button button-secondary" onClick={()=>go(`${BASE}/${competition.id}/de-thi`)}>Đề thi</button>{can('operate')&&<><button type="button" className="button button-secondary" onClick={()=>go(`${BASE}/${competition.id}/lich-thi`)}>Lịch thi</button><button type="button" className="button button-secondary" onClick={()=>go(`${BASE}/${competition.id}/phan-cong`)}>Phân công</button></>}{(can('operate')||can('approve'))&&<button type="button" className="button button-secondary" onClick={()=>go(`${BASE}/${competition.id}/xet-giai`)}>Kết quả</button>}{can('draft')&&<button type="button" className="button button-primary" onClick={()=>go(`${BASE}/${competition.id}/chinh-sua`)}>Chỉnh sửa</button>}</footer>
+  </dialog>;
+}
+
 function List({ navigate }) {
   const {can}=useAccess();
   const [state, setState] = useState({ loading: true, competitions: [], error: '' });
@@ -41,6 +61,7 @@ function List({ navigate }) {
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState('');
   const [notice, setNotice] = useState('');
+  const [details, setDetails] = useState(null);
   useEffect(() => {
     const controller = new AbortController();
     setState({ loading: true, competitions: [], error: '' });
@@ -56,8 +77,9 @@ function List({ navigate }) {
     if (deleting || !can('draft')) return;
     setDeleting(true); setActionError(''); setNotice('');
     try {
-      await api.delete(`/organizer/competitions/${id}`);
-      setDeleteId(null); setNotice('Đã xóa cuộc thi nháp.'); setAttempt(value => value + 1);
+      let complete=false,deletedCount=0;
+      while(!complete){const {data}=await api.delete(`/organizer/competitions/${id}`);complete=data.complete;deletedCount+=data.deletedCount||0;}
+      setDeleteId(null); setNotice(`Đã xóa cuộc thi nháp và ${deletedCount} mục dữ liệu liên quan.`); setAttempt(value => value + 1);
     } catch (error) {
       setActionError(error.response?.data?.message || 'Chưa thể xóa cuộc thi. Vui lòng thử lại.');
     } finally { setDeleting(false); }
@@ -67,8 +89,9 @@ function List({ navigate }) {
     <div className="panel-heading competition-list-heading"><div><h2>Danh sách cuộc thi</h2><p>Chuẩn bị nội dung và thể lệ cho từng cuộc thi.</p></div><button className="button button-primary" disabled={!can('draft')} onClick={() => navigate(`${BASE}/tao`)}><span aria-hidden="true">＋</span> Tạo cuộc thi</button></div>
     {actionError && <ErrorNotice message={actionError} />}{notice && <div className="notice competition-success" role="status">{notice}</div>}
     {state.loading ? <Loading /> : state.error ? <ErrorNotice message={state.error} retry={() => setAttempt((value) => value + 1)} /> : state.competitions.length === 0 ? <div className="competition-empty"><span className="competition-empty-icon"><ContestIcon /></span><h3>Chưa có cuộc thi</h3><p>Tạo cuộc thi đầu tiên để chuẩn bị tên, mô tả và thể lệ. Cuộc thi mới được lưu ở trạng thái Nháp.</p><button className="button button-secondary" onClick={() => navigate(`${BASE}/tao`)}>Tạo cuộc thi đầu tiên</button></div> : <div className="competition-list" data-testid="competition-list">{state.competitions.map((competition) => <article key={competition.id} className="competition-row">
-      <div className="competition-row-icon"><ContestIcon /></div><div className="competition-row-body"><div className="competition-row-badges"><StatusBadge status={competition.status} />{competition.isDemo && <span className="demo-label">Dữ liệu minh họa</span>}</div><h3><a href={`${BASE}/${competition.id}/chinh-sua`} onClick={(event) => { if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate(`${BASE}/${competition.id}/chinh-sua`); }}>{competition.name}</a></h3><div className="competition-row-actions"><a className="button button-secondary" href={`${BASE}/${competition.id}/de-thi`} onClick={(event) => { if(event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate(`${BASE}/${competition.id}/de-thi`); }}>Đề thi</a>{can('operate') && <a className="button button-secondary" href={`${BASE}/${competition.id}/lich-thi`} onClick={(event) => { if(event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate(`${BASE}/${competition.id}/lich-thi`); }}>Lịch thi</a>}</div><p>{competition.description || 'Chưa có mô tả.'}</p><small>Cập nhật: {formatDate(competition.updatedAtUtc)}</small></div><div className="competition-edit-actions"><button disabled={!can('draft')} className="button button-secondary competition-edit-button" onClick={() => navigate(`${BASE}/${competition.id}/chinh-sua`)} aria-label={`Chỉnh sửa cuộc thi ${competition.name}`}>Chỉnh sửa</button>{competition.status === 'Draft' && (deleteId === competition.id ? <div className="exam-actions"><span>Xóa bản nháp này?</span><button className="text-button exam-danger" disabled={!can('draft') || deleting} onClick={() => removeCompetition(competition.id)}>{deleting ? 'Đang xóa...' : 'Xác nhận xóa'}</button><button className="text-button" disabled={!can('draft') || deleting} onClick={() => setDeleteId(null)}>Hủy</button></div> : <button className="button button-secondary exam-danger" disabled={!can('draft') || deleting} onClick={() => { setDeleteId(competition.id); setActionError(''); }}>Xóa nháp</button>)}</div>
+      <div className="competition-row-icon"><ContestIcon /></div><div className="competition-row-body"><div className="competition-row-badges"><StatusBadge status={competition.status} />{competition.isDemo && <span className="demo-label">Dữ liệu minh họa</span>}</div><h3>{competition.name}</h3><p>{competition.description || 'Chưa có mô tả.'}</p><small>Cập nhật: {formatDate(competition.updatedAtUtc)}</small></div><div className="competition-edit-actions"><button type="button" className="button button-primary competition-view-button" onClick={()=>setDetails(competition)}>Xem chi tiết</button>{competition.status === 'Draft' && (deleteId === competition.id ? <div className="exam-actions"><span>Xóa bản nháp này?</span><button className="text-button exam-danger" disabled={!can('draft') || deleting} onClick={() => removeCompetition(competition.id)}>{deleting ? 'Đang xóa...' : 'Xác nhận xóa'}</button><button className="text-button" disabled={!can('draft') || deleting} onClick={() => setDeleteId(null)}>Hủy</button></div> : can('draft')&&<button className="text-button exam-danger" disabled={!can('draft') || deleting} onClick={() => { setDeleteId(competition.id); setActionError(''); }}>Xóa nháp</button>)}</div>
     </article>)}</div>}
+    {details&&<CompetitionDetailsDialog competition={details} can={can} navigate={navigate} onClose={()=>setDetails(null)}/>}
     <div className="competition-list-footer"><span>Trạng thái: Nháp · Đã công bố · Đã kết thúc</span><span>Lịch thi theo giờ Việt Nam (UTC+7).</span></div>
   </section>;
 }
@@ -142,7 +165,7 @@ function Form({ competitionId, navigate, onSaved, isDemoUser }) {
       if (controller.signal.aborted) return;
       setRecord(data); setFields({ name: data.name || '', description: data.description || '', rules: data.rules || '' });
       onSaved(editing ? 'Đã lưu thay đổi.' : 'Đã tạo cuộc thi ở trạng thái Nháp.');
-      if (!editing) navigate(data.initialExamId ? `${BASE}/${data.id}/de-thi/${data.initialExamId}` : `${BASE}/${data.id}/chinh-sua`, true);
+      if (!editing) navigate(`${BASE}/${data.id}/lich-thi`, true);
     } catch (error) {
       if (controller.signal.aborted) return;
       const errors = error.response?.data?.errors;

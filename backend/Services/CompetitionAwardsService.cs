@@ -34,7 +34,7 @@ public sealed record CompetitionAwardsResponse(
 /// <summary>Candidate-visible score and published award list.</summary>
 public sealed record CandidateAwardsResponse(
     bool IndividualScorePublished, CandidatePersonalScore? IndividualScore,
-    bool AwardsPublished, IReadOnlyList<CandidateAwardRecipient> Awards);
+    bool AwardsPublished, IReadOnlyList<CandidateAwardRecipient> Awards, CandidateAttemptSummary? AttemptSummary);
 
 /// <summary>Only the personal score fields approved for candidate publication.</summary>
 public sealed record CandidatePersonalScore(
@@ -42,6 +42,8 @@ public sealed record CandidatePersonalScore(
     decimal? TotalScore, DateTimeOffset? SubmittedAtUtc);
 
 /// <summary>Public award details without exposing unpublished scores.</summary>
+public sealed record CandidateAttemptSummary(int CorrectAnswersCount, long DurationMilliseconds, DateTimeOffset SubmittedAtUtc);
+
 public sealed record CandidateAwardRecipient(
     string AwardName, string CandidateCode, string FullName, string Department,
     string FieldGroupName, string RankingGroupName, int Rank);
@@ -277,24 +279,24 @@ public sealed class CompetitionAwardsService(AppDbContext db, ICompetitionResult
             ? plan.ApprovedSnapshotJson : plan?.DraftJson;
         var document = sourceJson is null ? AwardDocument.Empty : ReadDocument(sourceJson);
         var scoreIsPublic = document.IndividualScoresPublished;
-        CandidatePersonalScore? individualScore = null;
-        if (scoreIsPublic)
-        {
-            var result = await results.GetAsync(competitionId, null, cancellationToken);
-            var username = await db.Users.AsNoTracking().Where(user => user.Id == userId)
-                .Select(user => user.Username).SingleAsync(cancellationToken);
-            var row = result?.Rows.FirstOrDefault(item => item.IsValid
-                && string.Equals(item.CandidateCode, username, StringComparison.OrdinalIgnoreCase));
-            individualScore = row is null ? null : new CandidatePersonalScore(
-                row.Rank, row.CommonScore, row.SpecializedScore, row.ScenarioScore, row.TotalScore, row.SubmittedAtUtc);
-        }
+        var result = await results.GetAsync(competitionId, null, cancellationToken);
+        var username = await db.Users.AsNoTracking().Where(user => user.Id == userId)
+            .Select(user => user.Username).SingleAsync(cancellationToken);
+        var row = result?.Rows.FirstOrDefault(item => item.IsValid
+            && string.Equals(item.CandidateCode, username, StringComparison.OrdinalIgnoreCase));
+        CandidatePersonalScore? individualScore = scoreIsPublic && row is not null
+            ? new CandidatePersonalScore(row.Rank, row.CommonScore, row.SpecializedScore, row.ScenarioScore, row.TotalScore, row.SubmittedAtUtc)
+            : null;
+        CandidateAttemptSummary? attemptSummary = row?.CorrectAnswersCount is int correct && row.DurationMilliseconds is long duration && row.SubmittedAtUtc is DateTimeOffset submitted
+            ? new CandidateAttemptSummary(correct, duration, submitted)
+            : null;
         var published = plan?.Status == CompetitionAwardStatuses.Published && plan.ApprovedSnapshotJson is not null;
         var awards = published
             ? ReadDocument(plan!.ApprovedSnapshotJson!).Nominees.Select(item => new CandidateAwardRecipient(
                 item.AwardName, item.CandidateCode, item.FullName, item.Department, item.FieldGroupName,
                 item.RankingGroupName, item.Rank)).ToArray()
             : [];
-        return new CandidateAwardsResponse(scoreIsPublic, individualScore, published, awards);
+        return new CandidateAwardsResponse(scoreIsPublic, individualScore, published, awards, attemptSummary);
     }
 
     public async Task<CompetitionAwardOperation> EndCompetitionAsync(

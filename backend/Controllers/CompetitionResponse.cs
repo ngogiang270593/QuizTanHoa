@@ -14,6 +14,7 @@ internal static class CompetitionResponse
         competition.Rules,
         competition.Status,
         competition.IsDemo,
+        competition.DurationMinutes,
         createdAtUtc = Utc(competition.CreatedAtUtc),
         updatedAtUtc = Utc(competition.UpdatedAtUtc),
         opensAtUtc = Utc(competition.OpensAtUtc),

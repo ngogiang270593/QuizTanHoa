@@ -2,7 +2,8 @@
 export const PROCESS_PERMISSION_LABELS={draft:'Soạn nháp',submit:'Gửi duyệt / rút đề',approve:'Duyệt / trả lại',operate:'Tổ chức thi và kết quả',manageUsers:'Quản lý tài khoản và danh mục',takeExam:'Dự thi được phân công'};
 export const PROCESS_DEFAULTS=[
  {code:'SYSTEM_ADMIN',name:'Quản trị hệ thống',role:'Organizer',steps:['manageUsers'],description:'Tài khoản, phân quyền, danh mục và nhật ký hệ thống. Nghiệp vụ thi được cấp riêng khi cần.'},
- {code:'ORGANIZER',name:'Biên tập – Duyệt',role:'Organizer',steps:['draft','submit','approve','operate'],description:'Nháp → Chờ duyệt → Đã duyệt → Công khai. Duyệt và trả lại có ghi chú; trả lại về Nháp.'},
+ {code:'ORGANIZER',name:'Biên tập và tổ chức thi',role:'Organizer',steps:['draft','submit','operate'],description:'Biên tập đề, gửi duyệt, tổ chức thi và xem kết quả cuộc thi.'},
+ {code:'REVIEWER',name:'Duyệt đề',role:'Organizer',steps:['approve'],description:'Duyệt hoặc trả lại đề; xem kết quả cuộc thi ở chế độ chỉ đọc.'},
  {code:'CANDIDATE',name:'Thi',role:'Candidate',steps:['takeExam'],description:'Vào cuộc thi được phân công sau khi công khai, làm và nộp bài theo lịch.'},
 ];
 export const processStages=role=>role==='Candidate'?['Thi']:['Nháp','Chờ duyệt','Đã duyệt','Công khai'];

@@ -3,7 +3,7 @@ import {hasAccess} from '../shared/access.mjs';
 import {topicCatalog} from './topicCatalog.mjs';
 import {importPreview,workbookResponse,questionHeaders} from './xlsx.mjs';
 
-export const competitionProfile=c=>pick(c,['id','name','description','rules','status','isDemo','createdAtUtc','updatedAtUtc','opensAtUtc','startDeadlineUtc','closesAtUtc','publishedAtUtc']);
+export const competitionProfile=c=>pick(c,['id','name','description','rules','status','isDemo','createdAtUtc','updatedAtUtc','opensAtUtc','startDeadlineUtc','closesAtUtc','publishedAtUtc','durationMinutes']);
 const questionKeys=['topic','type','content','options','correctAnswer','points','isScenario','explanation','source','group','requiresSourceReview','sourceReviewed','reviewedByUserId','reviewedAtUtc'];
 export const questionFields=q=>pick(q,questionKeys);
 export function syncQuestionCounts(exam, questions) {
@@ -121,12 +121,14 @@ export async function contentRoute(ctx,competition) {
     if(method==='PUT') {
       const opens=parseLocal(body.opensAtLocal),deadline=parseLocal(body.startDeadlineLocal),closes=parseLocal(body.closesAtLocal);
       ensure(opens<deadline&&deadline<=closes,'Lịch thi phải có giờ mở < hạn bắt đầu ≤ giờ đóng.');
-      Object.assign(competition,{opensAtUtc:opens,startDeadlineUtc:deadline,closesAtUtc:closes,updatedAtUtc:now()});db.put('competitions',competition);
+      const durationMinutes=body.durationMinutes==null?competition.durationMinutes:integer(body.durationMinutes,1,480);
+      Object.assign(competition,{durationMinutes,opensAtUtc:opens,startDeadlineUtc:deadline,closesAtUtc:closes,updatedAtUtc:now()});db.put('competitions',competition);
     }
     if(['GET','PUT'].includes(method)) {
       const available=(Date.parse(competition.closesAtUtc)-Date.parse(competition.startDeadlineUtc))/60000;
-      const warnings=(await db.all('exams','competitionId',cid)).filter(e=>e.durationMinutes>available).map(e=>({examId:e.id,examName:e.name,durationMinutes:e.durationMinutes,availableMinutes:Math.max(0,available),message:`Đề “${e.name}” dài hơn thời gian còn lại khi bắt đầu sát hạn.`}));
-      return json({...pick(competition,['opensAtUtc','startDeadlineUtc','closesAtUtc']),opensAtLocal:local(competition.opensAtUtc),startDeadlineLocal:local(competition.startDeadlineUtc),closesAtLocal:local(competition.closesAtUtc),timeZone:TIME_ZONE,warnings});
+      const exams=await db.all('exams','competitionId',cid);
+      const warnings=competition.durationMinutes!=null?(competition.durationMinutes>available?[{examId:null,examName:'Th\u1eddi l\u01b0\u1ee3ng chung',durationMinutes:competition.durationMinutes,availableMinutes:Math.max(0,available),message:`Th\u1eddi l\u01b0\u1ee3ng ${competition.durationMinutes} ph\u00fat d\u00e0i h\u01a1n th\u1eddi gian c\u00f2n l\u1ea1i khi b\u1eaft \u0111\u1ea7u s\u00e1t h\u1ea1n.`}]:[]):exams.filter(e=>e.durationMinutes>available).map(e=>({examId:e.id,examName:e.name,durationMinutes:e.durationMinutes,availableMinutes:Math.max(0,available),message:`\u0110\u1ec1 ${e.name} d\u00e0i h\u01a1n th\u1eddi gian c\u00f2n l\u1ea1i khi b\u1eaft \u0111\u1ea7u s\u00e1t h\u1ea1n.`}));
+      return json({...pick(competition,['durationMinutes','opensAtUtc','startDeadlineUtc','closesAtUtc']),opensAtLocal:local(competition.opensAtUtc),startDeadlineLocal:local(competition.startDeadlineUtc),closesAtLocal:local(competition.closesAtUtc),timeZone:TIME_ZONE,warnings});
     }
   }
   if(sub!=='exams')return;
@@ -145,6 +147,8 @@ export async function contentRoute(ctx,competition) {
   if(action==='submit-review'&&method==='POST') {
     const p=await preview(db,exam);
     ensure(p.validation.canApprove,'Đề chưa đủ điều kiện gửi duyệt.',400,{errors:p.validation.errors});
+    ensure(competition.opensAtUtc&&competition.startDeadlineUtc&&competition.closesAtUtc&&competition.opensAtUtc<competition.startDeadlineUtc&&competition.startDeadlineUtc<=competition.closesAtUtc,'Cần lưu lịch thi hợp lệ trước khi trình duyệt.',400);
+    ensure((await db.all('assignments','competitionId',cid)).length>0,'Cần phân công ít nhất một thí sinh trước khi trình duyệt.',400);
     ensure(p.exam.reviewStatus!=='Approved'&&exam.reviewStatus!=='PendingReview','Đề đã duyệt hoặc đang chờ duyệt.',409);
     ensure(body.draftRevision==null||body.draftRevision===exam.draftRevision,'Bản nháp đã thay đổi. Hãy tải lại trước khi gửi duyệt.',409);
     Object.assign(exam,{reviewStatus:'PendingReview',submittedRevision:exam.draftRevision,submittedByUserId:user.id,submittedAtUtc:now(),reviewNote:'',updatedAtUtc:now()});db.put('exams',exam);reviewEvent(db,exam,user,'Submitted');return json(await examProfile(db,exam));
@@ -160,7 +164,6 @@ export async function contentRoute(ctx,competition) {
     const versions=await db.all('versions','examId',id),existing=versions.find(v=>v.draftRevision===exam.draftRevision);
     if(existing&&exam.currentApprovedVersionId===existing.id)return json(await loadVersion(db,existing.id));
     ensure(exam.reviewStatus==='PendingReview'&&exam.submittedRevision===exam.draftRevision,'Đề phải được gửi chờ duyệt trước khi duyệt.',409);
-    ensure(exam.submittedByUserId!==user.id||hasAccess(user,'manageUsers'),'Người gửi không được tự duyệt đề của mình.',403);
     const approvalNote=text(body.note,2000,true);
     const approvedAtUtc=now(),snapshot={schemaVersion:1,exam:pick(p.exam,['id','competitionId','name','fieldGroupId','fieldGroupName','durationMinutes','targetQuestionCount','commonQuestionCount','specializedQuestionCount','isDemo']),questions:p.questions,approvedAtUtc};
     const version={id:db.next('versions'),examId:id,competitionId:cid,versionNumber:Math.max(0,...versions.map(v=>v.versionNumber))+1,draftRevision:exam.draftRevision,
@@ -168,7 +171,7 @@ export async function contentRoute(ctx,competition) {
     let chunk=[],size=0,index=0;
     const flush=()=>{if(chunk.length){db.put('versionChunks',{id:`${version.id}_${index}`,versionId:version.id,competitionId:cid,index:index++,questions:chunk});chunk=[];size=0;}};
     for(const q of p.questions){const bytes=new TextEncoder().encode(JSON.stringify(q)).length;if(size+bytes>200000)flush();chunk.push(q);size+=bytes;}flush();
-    db.put('versions',version);exam.currentApprovedVersionId=version.id;exam.reviewStatus='Approved';exam.reviewNote=approvalNote;db.put('exams',exam);reviewEvent(db,exam,user,'Approved',exam.reviewNote);return json({...version,snapshot});
+    db.put('versions',version);for(const a of await db.all('assignments','competitionId',cid)){if(a.examId===exam.id&&!a.examVersionId){a.examVersionId=version.id;a.updatedAtUtc=now();db.put('assignments',a);}}exam.currentApprovedVersionId=version.id;exam.reviewStatus='Approved';exam.reviewNote=approvalNote;db.put('exams',exam);reviewEvent(db,exam,user,'Approved',exam.reviewNote);return json({...version,snapshot});
   }
   if(action==='versions'&&method==='GET') {
     if(parts.length===7)return json((await db.all('versions','examId',id)).sort((a,b)=>b.versionNumber-a.versionNumber).map(v=>({...v,snapshot:null})));
