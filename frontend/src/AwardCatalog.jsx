@@ -2,7 +2,7 @@ import {useEffect,useState} from 'react';
 import {api} from './api.js';
 import './AwardCatalog.css';
 
-const ICONS=[{key:'first',name:'Cúp vàng',src:'/awards/giai-nhat.png'},{key:'second',name:'Cúp bạc',src:'/awards/giai-nhi.png'},{key:'third',name:'Cúp đồng',src:'/awards/giai-ba.png'}];
+const ICONS=[{key:'first',name:'Cúp vàng',src:'/awards/giai-nhat.png'},{key:'second',name:'Cúp bạc',src:'/awards/giai-nhi.png'},{key:'third',name:'Cúp đồng',src:'/awards/giai-ba.png'},{key:'encouragement',name:'Nơ đỏ',src:'/awards/giai-khuyen-khich.png'}];
 export default function AwardCatalog(){
  const [items,setItems]=useState([]),[name,setName]=useState(''),[icon,setIcon]=useState('first'),[editing,setEditing]=useState(null),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState('');
  async function load(){setLoading(true);setError('');try{const {data}=await api.get('/organizer/award-catalog');setItems(Array.isArray(data)?data:[]);}catch(e){setError(e.response?.data?.message||'Không tải được danh mục giải thưởng.');}finally{setLoading(false);}}

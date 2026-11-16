@@ -13,7 +13,7 @@ const CANDIDATE_ROOT = '/thi-sinh/cuoc-thi';
 const STATUS_NAMES = { Draft: 'Nháp', Published: 'Đã công bố', Ended: 'Đã kết thúc' };
 const ATTEMPT_NAMES = { NotStarted: 'Chưa bắt đầu', InProgress: 'Đang làm bài', Submitted: 'Đã nộp bài', Expired: 'Đã hết thời gian' };
 const asList = value => Array.isArray(value) ? value : [];
-const AWARD_ICON_ASSETS={first:'/awards/giai-nhat.png',second:'/awards/giai-nhi.png',third:'/awards/giai-ba.png'};
+const AWARD_ICON_ASSETS={first:'/awards/giai-nhat.png',second:'/awards/giai-nhi.png',third:'/awards/giai-ba.png',encouragement:'/awards/giai-khuyen-khich.png'};
 function AwardIcon({icon,className}) { const src=AWARD_ICON_ASSETS[icon];return src?<img className={className||'award-icon-image'} src={src} alt="" aria-hidden="true"/>:<span className={className} aria-hidden="true">🏆</span>; }
 const issueText = value => typeof value === 'string' ? value : value?.message || '';
 const elapsedTime = value => {

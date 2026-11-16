@@ -52,7 +52,7 @@ export function proposal(categories,rows) {
 const fingerprint=async rows=>sha256(JSON.stringify(rows.filter(r=>r.isValid).sort((a,b)=>a.attemptId-b.attemptId)));
 function categoriesInput(value,groups) {
   ensure(Array.isArray(value)&&value.length>0&&value.length<=100,'Cấu hình cần có từ 1 đến 100 hạng giải.');
-  const icons=new Set(['trophy','gold','silver','bronze','medal','star','sparkle','rosette','first','second','third']);
+  const icons=new Set(['trophy','gold','silver','bronze','medal','star','sparkle','rosette','first','second','third','encouragement']);
   const categories=value.map(c=>({rankingGroupName:text(c?.rankingGroupName,200,true),awardName:text(c?.awardName,100,true),icon:icons.has(c?.icon)?c.icon:'trophy',quantity:integer(c?.quantity,1,1000)}));
   ensure(new Set(categories.map(c=>`${c.rankingGroupName}|${c.awardName}`.toLowerCase())).size===categories.length,'Tên giải bị trùng trong cùng nhóm.');
   if(groups)ensure(categories.every(c=>groups.some(g=>g.toLowerCase()===c.rankingGroupName.toLowerCase())),'Một hoặc nhiều nhóm xếp hạng không thuộc cuộc thi.');return categories;

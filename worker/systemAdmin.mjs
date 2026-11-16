@@ -20,7 +20,7 @@ export async function deleteCompetitionBatch(ctx,id,{confirmationName,draftOnly=
  return json({complete:false,deletedCount,remainingCount});
 }
 
-const awardIcons=new Set(['first','second','third']);
+const awardIcons=new Set(['first','second','third','encouragement']);
 const awardKey=name=>name.normalize('NFC').trim().toLocaleLowerCase('vi');
 const defaultAwards=[{name:'Giải nhất',icon:'first'},{name:'Giải nhì',icon:'second'},{name:'Giải ba',icon:'third'}];
 export async function awardCatalogRoute(ctx){
@@ -28,6 +28,8 @@ export async function awardCatalogRoute(ctx){
  if(method==='GET'){
   const meta=await db.get('awardCatalogMeta','defaultsV1');
   if(!meta){const items=await db.all('awardCatalog');for(const preset of defaultAwards)if(!items.some(item=>item.icon===preset.icon)){const row={...preset,id:db.next('awardCatalog'),createdAtUtc:now(),updatedAtUtc:now()};db.put('awardCatalog',row);}db.put('awardCatalogMeta',{id:'defaultsV1',seededAtUtc:now()});}
+  const encouragementMeta=await db.get('awardCatalogMeta','defaultsV2');
+  if(!encouragementMeta){const items=await db.all('awardCatalog'),existing=items.find(item=>awardKey(item.name)===awardKey('Giải khuyến khích'));if(existing){existing.icon='encouragement';existing.updatedAtUtc=now();db.put('awardCatalog',existing);}else{const row={id:db.next('awardCatalog'),name:'Giải khuyến khích',icon:'encouragement',createdAtUtc:now(),updatedAtUtc:now()};db.put('awardCatalog',row);}db.put('awardCatalogMeta',{id:'defaultsV2',seededAtUtc:now()});}
   return json((await db.all('awardCatalog')).sort((a,b)=>a.name.localeCompare(b.name,'vi')));
  }
  if(parts.length===3&&method==='POST'){
